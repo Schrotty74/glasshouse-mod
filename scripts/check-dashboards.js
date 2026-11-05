@@ -540,7 +540,7 @@ async function visitHomeVisibility(browser, base, problems) {
     if (!(bottom.rowTop > centred.rowTop) || !(gap(bottom) < gap(centred) / 3)) {
       problems.push('Home visibility: the rows are not along the bottom: ' + JSON.stringify({ centred, bottom }));
     }
-    // Alternative View: the clock on the right, and the row titles hidden.
+    // The fork keeps the clock left and Last watched right in both views.
     layout.showClock = true;
     layout.view = 'alternative';
     version++;
@@ -551,7 +551,7 @@ async function visitHomeVisibility(browser, base, problems) {
       source: document.getElementById('source').getBoundingClientRect().left,
       titles: [].slice.call(document.querySelectorAll('.row > h2')).filter(h => h.offsetHeight).length
     }));
-    if (!(alt.when > alt.source) || alt.titles) problems.push('Home visibility: Alternative View did not apply: ' + JSON.stringify(alt));
+    if (!(alt.when < alt.source) || alt.titles) problems.push('Home visibility: Alternative View did not apply: ' + JSON.stringify(alt));
   } finally { await page.close(); }
 }
 

@@ -279,4 +279,4 @@ In the browser dashboard, open **Home → Weather**. Search by town name or sele
 
 Open-Meteo handles town searches and supplies current conditions. Zippopotam.us handles postal-code searches. The dashboard sends the search term to the relevant provider. After a place is selected, the TV sends its coordinates to Open-Meteo and reuses each successful response for an hour.
 
-The four [Waldsee wallpapers](../../wallpapers/waldsee/) show the same forest lake in morning, afternoon, evening and night light. Upload them to their matching slots under **Home → Wallpaper → Your own**.
+The four [Waldsee wallpapers](https://github.com/Schrotty74/glasshouse-mod/tree/launcher-weather-waldsee/wallpapers/waldsee) show the same forest lake in morning, afternoon, evening and night light. Upload them to their matching slots under **Home → Wallpaper → Your own**.

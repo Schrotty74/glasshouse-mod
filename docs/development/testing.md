@@ -332,3 +332,11 @@ removed. This catches Node 0.12's destroy-before-open behaviour without
 relying on the filesystem finishing within a fixed delay.
 
 Fork releases whose tag contains `-mod.` ship as source with a separate wallpaper archive. The Homebrew Channel packaging job skips those tags.
+
+
+Fork CI fetches the upstream `v0.80.8` tag explicitly before the updater
+compatibility check, because a new fork can have only its own release tags.
+The browser check expects the clock on the left and Last watched on the
+right in Alternative View as well. The NTP read-back test checks the numeric
+offset within its existing tolerance separately from the diagnostic format,
+so crossing a whole-second boundary does not fail the wording assertion.
