@@ -979,3 +979,58 @@ function initHomeDarkSlider() {
 }
 
 initHomeDarkSlider();
+
+(function () {
+  var path = '/api/home/local-weather-place';
+  function el(id) { return document.getElementById('local-weather-' + id); }
+  var selected = el('selected'), results = el('results'), status = el('status'), clear = el('clear'), search = 0;
+  function show(place) {
+    selected.textContent = place ? t('home.weather.selected', 'Selected: {place}', {place: place.label}) : t('home.weather.empty', 'No weather location selected.');
+    clear.hidden = !place;
+  }
+  async function save(place) {
+    status.textContent = t('home.weather.saving', 'Saving…');
+    try { await homePost(path, {place: place}); show(place); results.textContent = ''; status.textContent = t('home.weather.saved', 'Saved.'); }
+    catch (e) { status.textContent = t('home.weather.saveError', 'Could not save the location: {error}', {error: e.message}); }
+  }
+  clear.onclick = function () { save(null); };
+  el('form').onsubmit = async function (event) {
+    event.preventDefault();
+    var q = el('query').value.trim(), country = el('country').value, request = ++search;
+    results.textContent = '';
+    if (q.length < 2) { status.textContent = t('home.weather.short', 'Enter at least two characters.'); return; }
+    status.textContent = t('home.weather.searching', 'Searching…');
+    try {
+      var postal = /^\d{4,5}$/.test(q);
+      if (postal && !country) {
+        status.textContent = t('home.weather.postalCountry', 'Select a country for the postal code.');
+        return;
+      }
+      var url = postal ? 'https://api.zippopotam.us/' + encodeURIComponent(country) + '/' + encodeURIComponent(q)
+        : 'https://geocoding-api.open-meteo.com/v1/search?count=10&language=' + encodeURIComponent(document.documentElement.lang || 'en') + '&name=' + encodeURIComponent(q) +
+          (country ? '&countryCode=' + encodeURIComponent(country) : '');
+      var response = await fetch(url);
+      if (response.status !== 404 && !response.ok) throw new Error('HTTP ' + response.status);
+      var data = response.ok ? await response.json() : {};
+      if (request !== search) return;
+      var rows = postal ? (data.places || []).map(function (p) {
+        return {name:p['place name'],admin1:p.state,country:el('country').selectedOptions[0].text,
+          latitude:Number(p.latitude),longitude:Number(p.longitude)};
+      }) : (data.results || []);
+      var places = rows.filter(function (p) { return Number.isFinite(p.latitude) && Number.isFinite(p.longitude); });
+      status.textContent = places.length ? t('home.weather.choose', 'Select a location:') : t('home.weather.noResults', 'No matches. Check the country or search by town name.');
+      places.forEach(function (p) {
+        var label = [p.name, p.admin2, p.admin1, p.country].filter(function (v, i, a) { return v && a.indexOf(v) === i; }).join(', ');
+        var button = document.createElement('button');
+        button.type = 'button'; button.textContent = label;
+        button.onclick = function () { save({name:p.name,label:label,lat:p.latitude,lon:p.longitude}); };
+        results.appendChild(button);
+      });
+    } catch (e) {
+      if (request === search) status.textContent = t('home.weather.searchError', 'Location search is unavailable.');
+    }
+  };
+  fetch(api(path)).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.ok) show(r.place);
+  }).catch(function () {});
+}());

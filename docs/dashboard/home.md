@@ -270,3 +270,13 @@ On webOS 10 the section has a switch at the top, with its warning, and nothing i
 **Recent apps**, under the rows on the Home tab, lists the apps with a **Shown** or **Hidden** switch each. A hidden app never appears in Glasshouse Home's Recent apps panel (Back on Home), and Glasshouse no longer serves its last screen, including one saved before it was hidden. Its tile stays on the Apps row; hiding a tile is the Apps row's own choice. This doesn't stop webOS taking its snapshots or change LG's own Recents.
 
 The list is kept as `excludedRecents` in `/var/lib/tvweb/home.json`, a list of app IDs, and `POST /api/home/layout` takes it too, for example `{"excludedRecents":["private.app.id"]}`.
+
+## Glasshouse Mod layout and weather
+
+In this fork, the Apps and Inputs rows are centered when all their tiles fit. Longer rows start at the left and scroll as usual. The clock is smaller and sits lower on the left. Last watched is aligned to the right.
+
+In the browser dashboard, open **Home → Weather**. Search by town name or select Austria, Germany or Switzerland to search by postal code. Choose the matching town from the results. Glasshouse Home shows a larger weather symbol and the temperature in Celsius beside the clock. **Hide weather** clears the selection.
+
+Open-Meteo handles town searches and supplies current conditions. Zippopotam.us handles postal-code searches. The dashboard sends the search term to the relevant provider. After a place is selected, the TV sends its coordinates to Open-Meteo and reuses each successful response for an hour.
+
+The four [Waldsee wallpapers](../../wallpapers/waldsee/) show the same forest lake in morning, afternoon, evening and night light. Upload them to their matching slots under **Home → Wallpaper → Your own**.

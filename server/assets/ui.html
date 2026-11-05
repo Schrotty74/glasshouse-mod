@@ -1079,6 +1079,21 @@
   <!-- Home customisation, whichever Home is the TV's: power-on, Glasshouse Home's
        own options while it is on, LG's Home's layout while that is, and system apps -->
   <div id="home-custom" hidden>
+  <div id="local-weather-panel" style="margin:0 0 32px">
+    <h3 data-t="home.weather.title">Weather</h3>
+    <p id="local-weather-selected" aria-live="polite"></p>
+    <form id="local-weather-form">
+      <label for="local-weather-query" data-t="home.weather.query">Town or postal code</label>
+      <input id="local-weather-query" type="search" maxlength="100" required minlength="2" data-t-placeholder="home.weather.example" placeholder="e.g. Salzburg">
+      <label for="local-weather-country" data-t="home.weather.country">Country</label>
+      <select id="local-weather-country"><option value="AT" data-t="home.weather.austria">Austria</option><option value="DE" data-t="home.weather.germany">Germany</option><option value="CH" data-t="home.weather.switzerland">Switzerland</option><option value="" data-t="home.weather.all">All countries</option></select>
+      <button type="submit" data-t="home.weather.search">Search</button>
+    </form>
+    <p id="local-weather-status" role="status"></p>
+    <div class="btns" id="local-weather-results"></div>
+    <button type="button" id="local-weather-clear" hidden data-t="home.weather.clear">Hide weather</button>
+    <p><a href="https://open-meteo.com/" target="_blank" rel="noopener" data-t="home.weather.source">Weather and place search by Open-Meteo</a> · <a href="https://www.zippopotam.us/" target="_blank" rel="noopener" data-t="home.weather.postalSource">Postal codes by Zippopotam.us</a></p>
+  </div>
   <div class="pv-sec" data-t="home.customisation">Home customisation</div>
   <div class="home-group" id="home-g-start">
   <div class="pv-g" data-t="home.group.start">Starting up</div>

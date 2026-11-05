@@ -43,15 +43,15 @@ html.resting #wall .layer{-webkit-animation-play-state:paused;animation-play-sta
 #now,.row h2,.tile{text-shadow:0 1px 12px rgba(0,0,0,.55)}
 
 #now{display:-webkit-flex;display:flex;-webkit-align-items:flex-end;align-items:flex-end;padding:0 112px;height:262px}
-#when{width:520px;-webkit-flex:0 0 auto;flex:0 0 auto}
-#clock{font-family:'Outfit',sans-serif;font-size:176px;line-height:.8;font-weight:300;letter-spacing:-4px}
+#when{position:relative;top:22px;width:520px;-webkit-flex:0 0 auto;flex:0 0 auto}
+#clock{font-family:'Outfit',sans-serif;font-size:116px;line-height:1;font-weight:300;letter-spacing:-4px}
 /* The hour cycle, in 12-hour time only: small enough to stay inside #when,
    which is sized for the digits alone. */
 #mer{font-size:.28em;letter-spacing:0;margin-left:.1em;opacity:.75;font-weight:400}
 #date{margin-top:22px;font-size:28px;color:#a39d93;white-space:nowrap}
 /* Switched off, the clock keeps its space, so the rows and Last watched stay put. */
 .no-clock #when{visibility:hidden}
-#source{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;padding-left:24px;border-left:1px solid #2a2825;padding-bottom:2px}
+#source{-webkit-flex:1 1 auto;flex:1 1 auto;min-width:0;padding-left:24px;padding-bottom:2px;text-align:right;-webkit-order:4;order:4}
 #source.none{visibility:hidden}
 #srcKind{font-size:23px;color:#e9ad55}
 #srcTitle{font-family:'Outfit',sans-serif;font-size:70px;line-height:1;font-weight:400;letter-spacing:-1px;margin:8px 0 12px;
@@ -127,10 +127,14 @@ html.resting #wall .layer{-webkit-animation-play-state:paused;animation-play-sta
 /* Alternative View (#999): a smaller clock on the right, Last watched to its
    left, and the rows as rounded, translucent tiles, titled only while arranging. */
 .alternative #now{padding:0 90px}
-.alternative #when{-webkit-order:3;order:3;width:420px;text-align:right}
-.alternative #clock{font-size:100px;line-height:1;letter-spacing:-2px}
+.alternative #when{-webkit-order:0;order:0;width:420px;text-align:left}
+.alternative #clock{font-size:88px;line-height:1;letter-spacing:-2px}
+#clock{white-space:nowrap}
+#local-weather-badge:not([hidden]){display:inline-flex;-webkit-align-items:center;align-items:center;margin-left:22px;vertical-align:middle;font:28px/1 sans-serif;letter-spacing:0;color:#ded9cf}
+#local-weather-icon{font:72px/1 sans-serif;margin-right:10px}
+.alternative #local-weather-icon{font-size:56px}
 .alternative #date{margin-top:8px;font-size:23px}
-.alternative #source{-webkit-order:1;order:1;border-left:0;padding-left:22px}
+.alternative #source{padding-left:22px}
 .alternative #plate{-webkit-order:2;order:2;margin:0 56px 0 0}
 .alternative #preview{-webkit-order:2;order:2;margin:0 56px 0 auto}
 /* The clock is right-aligned in a box sized for any time; previewing, it hugs
@@ -169,6 +173,12 @@ html.resting #wall .layer{-webkit-animation-play-state:paused;animation-play-sta
    offsetLeft is always from the track, also before it has been moved; its own
    layer, so a move is not a repaint of every tile in it. */
 .track{position:relative;display:-webkit-flex;display:flex;white-space:nowrap;will-change:transform}
+/* Center the apps only when spare space is available. */
+html:not(.arranging) .row[data-key="app"] .track > .tile:first-child{margin-left:auto}
+html:not(.arranging) .row[data-key="dev"] .track > .tile:first-child{margin-left:auto}
+html:not(.arranging) .row[data-key="app"] .track > .tile:last-child{margin-right:auto}
+html:not(.arranging) .row[data-key="dev"] .track > .tile:last-child{margin-right:auto}
+
 /* While the pointer is over a row with more to one side, a soft arrow shows
    there: resting the pointer on that end glides the row. */
 .wrap .edge{position:absolute;top:0;bottom:0;width:96px;opacity:0;pointer-events:none;z-index:1;
@@ -406,7 +416,7 @@ body.no-slide #recents,body.no-slide #finder,body.no-slide #folder,body.no-slide
 
   <section id="now">
     <div id="when">
-      <div id="clock"><span id="hm">&mdash;</span><span id="mer" hidden></span></div>
+      <div id="clock"><span id="hm">&mdash;</span><span id="mer" hidden></span><span id="local-weather-badge" hidden><span id="local-weather-icon" aria-hidden="true"></span><span id="local-weather-temp"></span></span></div>
       <div id="date">&mdash;</div>
     </div>
     <div id="source" class="none">
@@ -2948,6 +2958,45 @@ body.no-slide #recents,body.no-slide #finder,body.no-slide #folder,body.no-slide
   setInterval(function () { refreshNow(); refreshGuide(); }, 60000);
   setInterval(function () { if (!state.arranging) load(); }, 5 * 60000);
 })();
+</script>
+<script>
+(function () {
+  var badge = document.getElementById('local-weather-badge');
+  var icon = document.getElementById('local-weather-icon');
+  var busy = false;
+  function symbol(code, day) {
+    if (code === 0) return day ? '☀' : '☾';
+    if (code <= 2) return day ? '⛅' : '☁';
+    if (code === 3) return '☁';
+    if (code <= 48) return '≋';
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return '❄';
+    if (code >= 95) return 'ϟ';
+    return '☂';
+  }
+  function refresh() {
+    if (busy) return;
+    busy = true;
+    var xhr = new XMLHttpRequest();
+    xhr.open('GET', '/api/home/local-weather-current?t=' + Date.now());
+    xhr.timeout = 15000;
+    xhr.onloadend = function () {
+      busy = false;
+      var result;
+      try { result = JSON.parse(xhr.responseText); } catch (e) {}
+      var w = result && result.ok && result.weather;
+      badge.hidden = !w;
+      if (w) icon.textContent = symbol(w.code,w.day);
+      if (w) {
+        document.getElementById('local-weather-temp').textContent = w.temperature + ' °C';
+        badge.title = w.name;
+      }
+    };
+    xhr.send();
+  }
+  refresh();
+  setInterval(refresh, 60000);
+  document.addEventListener('visibilitychange', refresh);
+}());
 </script>
 </body>
 </html>

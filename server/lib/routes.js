@@ -1127,6 +1127,8 @@ function lgHomeOptions(glasshouseHome, cb) {
  * but the layout and what is open, so it needs no allowControl; anything from
  * the network does.
  */
+var localWeatherCache = null;
+var localWeatherPending = {};
 function handleHomeRoute(req, res, u, pathname) {
   function reply(r) { send(res, r && r.ok === false ? 400 : 200, JSON.stringify(r)); }
   if (req.method === 'GET') {
@@ -1162,6 +1164,47 @@ function handleHomeRoute(req, res, u, pathname) {
           });
         }
       });
+    }
+    if (pathname === '/api/home/local-weather-current') {
+      var location;
+      try { location = JSON.parse(fs.readFileSync(path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json'), 'utf8')); }
+      catch (e) {
+        if (e.code === 'ENOENT') return reply({ok:true, weather:null});
+        return reply({ok:false, error:'Weather location unavailable'});
+      }
+      if (!location) return reply({ok:true, weather:null});
+      if (typeof location.lat !== 'number' || !isFinite(location.lat) || Math.abs(location.lat) > 90 ||
+          typeof location.lon !== 'number' || !isFinite(location.lon) || Math.abs(location.lon) > 180)
+        return reply({ok:false, error:'Invalid weather location'});
+      var key = location.lat + '/' + location.lon + '/' + location.name;
+      var cached = localWeatherCache && localWeatherCache.key === key ? localWeatherCache : null;
+      if (cached && Date.now() - cached.at < 60 * 60000) return reply({ok:true, weather:cached.weather});
+      if (localWeatherPending[key]) { localWeatherPending[key].push(reply); return; }
+      localWeatherPending[key] = [reply];
+      var forecast = 'https://api.open-meteo.com/v1/forecast?latitude=' + location.lat +
+        '&longitude=' + location.lon + '&current=temperature_2m,weather_code,is_day';
+      return fetchLib.getJson(forecast, function (err, data) {
+        var current = data && data.current, weather;
+        if (!err && current && typeof current.temperature_2m === 'number' && isFinite(current.temperature_2m) &&
+            typeof current.weather_code === 'number') {
+          weather = {name:location.name, temperature:Math.round(current.temperature_2m),
+            code:current.weather_code, day:!!current.is_day};
+          localWeatherCache = {key:key, at:Date.now(), weather:weather};
+        } else if (cached && Date.now() - cached.at < 180 * 60000) weather = cached.weather;
+        var waiting = localWeatherPending[key];
+        delete localWeatherPending[key];
+        waiting.forEach(function (sendWeather) {
+          sendWeather(weather ? {ok:true, weather:weather} : {ok:false, error:'Weather provider unavailable'});
+        });
+      });
+    }
+    if (pathname === '/api/home/local-weather-place') {
+      try {
+        return reply({ ok: true, place: JSON.parse(fs.readFileSync(path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json'), 'utf8')) });
+      } catch (e) {
+        if (e.code === 'ENOENT') return reply({ ok: true, place: null });
+        return reply({ ok: false, error: 'Weather location could not be read' });
+      }
     }
     if (pathname === '/api/home/catalogue') {
       return homeModule.catalogue(function (c) {
@@ -1230,6 +1273,23 @@ function handleHomeRoute(req, res, u, pathname) {
       });
     }
     return readJsonBody(req, res, function (body) {
+      if (pathname === '/api/home/local-weather-place') {
+        var place = body && body.place;
+        if (place !== null && (!place || typeof place.name !== 'string' || !place.name.trim() ||
+          place.name.length > 160 || typeof place.label !== 'string' || place.label.length > 260 ||
+          typeof place.lat !== 'number' || !isFinite(place.lat) || Math.abs(place.lat) > 90 ||
+          typeof place.lon !== 'number' || !isFinite(place.lon) || Math.abs(place.lon) > 180)) {
+          return reply({ ok: false, error: 'Invalid weather location' });
+        }
+        try {
+          var weatherFile = path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json');
+          writeJsonAtomic(weatherFile, place === null ? null :
+            { name: place.name, label: place.label, lat: place.lat, lon: place.lon }, 384);
+          return reply({ ok: true });
+        } catch (e) {
+          return reply({ ok: false, error: 'Weather location could not be saved' });
+        }
+      }
       if (pathname === '/api/home/layout') return homeModule.setLayout(body, reply);
       if (pathname === '/api/home/start-layout') return homeModule.setHideLgHomeAtStart(body, reply);
       if (pathname === '/api/home/wallpapers') return homeModule.setWallpapers(body, reply);

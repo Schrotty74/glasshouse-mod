@@ -679,5 +679,97 @@
  "home.search.opening": {"text": "{title} wird in {app} geöffnet", "from": "Opening {title} on {app}"},
  "home.search.rail": {"text": "Suche", "from": "Search"},
  "home.search.ready": {"text": "Filme und Serien in den Apps dieses TVs, über die LG-Suche", "from": "Films and series on this TV’s apps, from LG’s search"},
- "home.search.series": {"text": "Serie", "from": "Series"}
+ "home.search.series": {"text": "Serie", "from": "Series"},
+  "home.weather.title": {
+    "text": "Wetter",
+    "from": "Weather"
+  },
+  "home.weather.query": {
+    "text": "Ort oder Postleitzahl",
+    "from": "Town or postal code"
+  },
+  "home.weather.example": {
+    "text": "z. B. Salzburg",
+    "from": "e.g. Salzburg"
+  },
+  "home.weather.country": {
+    "text": "Land",
+    "from": "Country"
+  },
+  "home.weather.austria": {
+    "text": "Österreich",
+    "from": "Austria"
+  },
+  "home.weather.germany": {
+    "text": "Deutschland",
+    "from": "Germany"
+  },
+  "home.weather.switzerland": {
+    "text": "Schweiz",
+    "from": "Switzerland"
+  },
+  "home.weather.all": {
+    "text": "Alle Länder",
+    "from": "All countries"
+  },
+  "home.weather.search": {
+    "text": "Suchen",
+    "from": "Search"
+  },
+  "home.weather.clear": {
+    "text": "Wetter ausblenden",
+    "from": "Hide weather"
+  },
+  "home.weather.source": {
+    "text": "Wetterdaten und Ortssuche: Open-Meteo",
+    "from": "Weather and place search by Open-Meteo"
+  },
+  "home.weather.postalSource": {
+    "text": "Postleitzahlen: Zippopotam.us",
+    "from": "Postal codes by Zippopotam.us"
+  },
+  "home.weather.selected": {
+    "text": "Ausgewählt: {place}",
+    "from": "Selected: {place}"
+  },
+  "home.weather.empty": {
+    "text": "Noch kein Wetterort ausgewählt.",
+    "from": "No weather location selected."
+  },
+  "home.weather.saving": {
+    "text": "Speichere …",
+    "from": "Saving…"
+  },
+  "home.weather.saved": {
+    "text": "Gespeichert.",
+    "from": "Saved."
+  },
+  "home.weather.saveError": {
+    "text": "Speichern fehlgeschlagen: {error}",
+    "from": "Could not save the location: {error}"
+  },
+  "home.weather.short": {
+    "text": "Bitte mindestens zwei Zeichen eingeben.",
+    "from": "Enter at least two characters."
+  },
+  "home.weather.searching": {
+    "text": "Suche …",
+    "from": "Searching…"
+  },
+  "home.weather.postalCountry": {
+    "text": "Bitte ein Land zur Postleitzahl auswählen.",
+    "from": "Select a country for the postal code."
+  },
+  "home.weather.choose": {
+    "text": "Passenden Ort auswählen:",
+    "from": "Select a location:"
+  },
+  "home.weather.noResults": {
+    "text": "Keine Treffer. Prüfe das Land oder suche nach dem Ortsnamen.",
+    "from": "No matches. Check the country or search by town name."
+  },
+  "home.weather.searchError": {
+    "text": "Die Ortssuche ist gerade nicht erreichbar.",
+    "from": "Location search is unavailable."
+  }
 }

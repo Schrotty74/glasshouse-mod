@@ -200,3 +200,7 @@ limited to. An icon is only read from inside its app's own folder,
 whatever the app's `appinfo.json` names. Anyone on the network can tell which
 apps are installed by asking for their icons. Off by default. A port already in use is logged and left, and the
 dashboard and Home Assistant bridge carry on without it.
+
+## Glasshouse Mod weather
+
+The weather location is saved as `local-weather-place.json` next to the Glasshouse configuration. The file contains the selected name, display label and coordinates. The dashboard can clear the selection with **Hide weather**. The current conditions are cached in memory. The TV contacts Open-Meteo when the launcher needs weather for the selected location and its cached response has expired.

@@ -330,3 +330,5 @@ The sideload route check forces an upload to abort before its file opens,
 then confirms that the eventual descriptor closes and the staging file is
 removed. This catches Node 0.12's destroy-before-open behaviour without
 relying on the filesystem finishing within a fixed delay.
+
+Fork releases whose tag contains `-mod.` ship as source with a separate wallpaper archive. The Homebrew Channel packaging job skips those tags.
