@@ -10,6 +10,17 @@ var NAME_RE = require('./installer').NAME_RE;
 var cmpVer = require('./installer').cmpVer;
 
 var DEFAULT_REPO = 'https://repo.webosbrew.org/api/apps.json';
+// Initial catalog selection for this fork; after the first change the user's
+// saved apps.repos list takes precedence, including an intentionally empty list.
+var FORK_REPOS = [
+  'https://raw.githubusercontent.com/Schrotty74/glasshouse-mod/launcher-weather-waldsee/repo.json',
+  'https://tbsniller.github.io/apps-repo/api/apps.json',
+  'https://webosappclub.github.io/',
+  'https://gamefree24.ru/webos/repository.json',
+  'https://pastebin.com/raw/YuSSrivd',
+  'https://raw.githubusercontent.com/NicholasBly/youtube-webos/main/repo.json',
+  'https://raw.githubusercontent.com/Schrotty74/LG-G5-Apps/HEAD/repo.json'
+];
 var MAX_PAGES = 50;
 var CACHE_MS = 3600000;
 // A failure is never remembered for longer than this, whatever the cache age,
@@ -37,6 +48,7 @@ function init(opts) {
 function repoUrls() {
   var list = [DEFAULT_REPO];
   var extra = config.apps && config.apps.repos;
+  if (Object.prototype.toString.call(extra) !== '[object Array]') extra = FORK_REPOS;
   if (Object.prototype.toString.call(extra) === '[object Array]') {
     for (var i = 0; i < extra.length; i++) {
       if (typeof extra[i] === 'string' && list.indexOf(extra[i]) < 0) list.push(extra[i]);
