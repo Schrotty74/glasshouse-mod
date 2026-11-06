@@ -69,7 +69,7 @@ assert.equal(collectCalls, n, 'new executable rejected before changes');
 assert.throws(function () { state.checkConfiguration(JSON.parse('{"__proto__":{"polluted":true}}')); }, /Unsafe/);
 // Exercise the actual HTTP route with an image larger than the former 64 KB limit.
 var routes = require('../server/lib/routes'), http = require('http');
-put('home-wallpaper-uploads/afternoon.jpg', Buffer.concat([jpeg.slice(0, -2), new Buffer(100000).fill(0), jpeg.slice(-2)]));
+put('home-wallpaper-uploads/afternoon.jpg', Buffer.concat([jpeg.slice(0, -2), util.allocBuffer(100000), jpeg.slice(-2)]));
 backup.create(function (b) { document = b; });
 routes.init({ config: { allowControl: true }, backup: backup, restartSelf: function () { return true; } });
 var server = http.createServer(routes.handleRequest);

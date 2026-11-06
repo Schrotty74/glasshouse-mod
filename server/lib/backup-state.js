@@ -23,6 +23,10 @@ function digest(buf) { return crypto.createHash('sha256').update(buf).digest('he
 function clean(value, depth) {
   if (depth > 20) throw new Error('Settings are nested too deeply');
   if (!value || typeof value !== 'object') return;
+  var prototype = Object.getPrototypeOf(value);
+  if (prototype !== (Array.isArray(value) ? Array.prototype : Object.prototype) && prototype !== null) {
+    throw new Error('Unsafe settings prototype');
+  }
   Object.keys(value).forEach(function (key) {
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') throw new Error('Unsafe settings key');
     clean(value[key], depth + 1);

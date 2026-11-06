@@ -1,5 +1,9 @@
 # Glasshouse Mod changelog
 
+## 0.139.3 — 2026-11-06
+
+- Backup import rejects inherited object prototypes on Node 0.10, whose JSON parser handles `__proto__` differently. The large-backup test uses the existing buffer helper for legacy Node compatibility.
+
 ## 0.139.2 — 2026-11-06
 
 - Settings backups include weather, wallpaper images and selection, IPTV subscriptions and channel choices, Homebrew catalogs, and the complete Glasshouse configuration, including private credentials and custom configuration keys.
