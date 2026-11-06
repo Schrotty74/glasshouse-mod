@@ -84,6 +84,8 @@ handed to another through init() is typed with
 
 # Working with a TV
 
+Keep TV work in the background. Do not launch apps in the foreground or switch HDMI inputs for edits, checks or screenshots. Use SSH and background inspection; if a check cannot run that way, report the limitation without interrupting the active input.
+
 `scripts/tv.sh <address> version|app|luna|log|capture` covers the usual
 look at a rooted TV over SSH; run it with no arguments for its usage.
 

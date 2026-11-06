@@ -1,0 +1,728 @@
+diff --git a/frontend/catalog-browser.js b/frontend/catalog-browser.js
+new file mode 100644
+index 0000000..0db92ef
+--- /dev/null
++++ b/frontend/catalog-browser.js
+@@ -0,0 +1,226 @@
++// Small ES5-only helpers for the Homebrew Channel catalog browser.
++
++var TRACKER_KEY = 'catalogBrowserSeen.v1';
++
++function parseVersion(version) {
++  if (typeof version !== 'string') return null;
++  var match = /^(\d+(?:\.\d+)*(?:[A-Za-z][A-Za-z0-9-]*)?)(?:-([0-9A-Za-z.-]+))?(?:\+([0-9A-Za-z.-]+))?$/.exec(version);
++  if (!match) return null;
++  var parts = match[1].split('.');
++  var numbers = [];
++  var prerelease = match[2] ? match[2].split('.') : [];
++  var build = match[3] ? match[3].split('.') : [];
++  var i;
++  for (i = 0; i < parts.length; i++) {
++    var match = /^(\d+)([A-Za-z][A-Za-z0-9]*)?$/.exec(parts[i]);
++    if (!match) return null;
++    numbers.push(match[1].replace(/^0+(?=\d)/, ''));
++    if (match[2]) {
++      if (i !== parts.length - 1) return null;
++      if (prerelease.length) return null;
++      prerelease.push(match[2]);
++    }
++  }
++  for (i = 0; i < prerelease.length; i++) {
++    if (!prerelease[i]) return null;
++  }
++  for (i = 0; i < build.length; i++) {
++    if (!build[i]) return null;
++  }
++  while (numbers.length > 1 && numbers[numbers.length - 1] === '0') numbers.pop();
++  return {numbers: numbers, prerelease: prerelease, build: build};
++}
++
++function compareNumericStrings(left, right) {
++  var a = String(left).replace(/^0+(?=\d)/, '');
++  var b = String(right).replace(/^0+(?=\d)/, '');
++  if (a.length !== b.length) return a.length > b.length ? 1 : -1;
++  return a > b ? 1 : a < b ? -1 : 0;
++}
++
++function compareVersions(available, installed) {
++  var a = parseVersion(available);
++  var b = parseVersion(installed);
++  if (!a || !b) return null;
++  var length = Math.max(a.numbers.length, b.numbers.length);
++  var i;
++  for (i = 0; i < length; i++) {
++    var comparison = compareNumericStrings(i < a.numbers.length ? a.numbers[i] : '0', i < b.numbers.length ? b.numbers[i] : '0');
++    if (comparison) return comparison;
++  }
++  if (!a.prerelease.length && b.prerelease.length) return 1;
++  if (a.prerelease.length && !b.prerelease.length) return -1;
++  for (i = 0; i < Math.max(a.prerelease.length, b.prerelease.length); i++) {
++    if (i >= a.prerelease.length) return -1;
++    if (i >= b.prerelease.length) return 1;
++    var left = a.prerelease[i];
++    var right = b.prerelease[i];
++    var leftNumeric = /^\d+$/.test(left);
++    var rightNumeric = /^\d+$/.test(right);
++    if (leftNumeric && rightNumeric) comparison = compareNumericStrings(left, right);
++    else if (leftNumeric) comparison = -1;
++    else if (rightNumeric) comparison = 1;
++    else comparison = left > right ? 1 : left < right ? -1 : 0;
++    if (comparison) return comparison;
++  }
++  return 0;
++}
++
++function repoLabel(url) {
++  if (typeof url !== 'string' || !url) return '';
++  var match = /^https?:\/\/([^/]+)(\/.*)?$/i.exec(url);
++  if (!match) return url;
++  var host = match[1].toLowerCase();
++  var path = (match[2] || '').replace(/\/$/, '');
++  if (host === 'github.com' || host === 'raw.githubusercontent.com') {
++    var segments = path.split('/').slice(1);
++    if (segments.length >= 2 && segments[0] && segments[1]) return segments[0] + '/' + segments[1];
++  }
++  return host + path;
++}
++
++function decorate(entries, inventory, newKeys) {
++  inventory = inventory || {};
++  newKeys = newKeys || {};
++  return (entries || []).map(function (entry) {
++    var row = {};
++    var key;
++    for (key in entry) {
++      if (Object.prototype.hasOwnProperty.call(entry, key)) row[key] = entry[key];
++    }
++    var record = inventory[row.id];
++    var known = !!(record && record.known === true);
++    var installedVersion = known && typeof record.version === 'string' ? record.version : null;
++    var availableVersion = row.manifest && typeof row.manifest.version === 'string' ? row.manifest.version : null;
++    var comparison = installedVersion && availableVersion ? compareVersions(availableVersion, installedVersion) : null;
++    var status = 'unknown';
++    if (known) {
++      if (installedVersion && comparison === 1) status = 'update';
++      else if (installedVersion) status = 'installed';
++      else status = 'available';
++    }
++    var label = repoLabel(row.repository || '');
++    var isNew = !!newKeys[row.uid];
++    var info = availableVersion ? 'Available ' + availableVersion : 'Version unknown';
++    if (status === 'update') info += ' (installed ' + installedVersion + ')';
++    else if (status === 'installed') info += ' (installed)';
++    else if (status === 'available') info += ' (not installed)';
++    else info += ' (install status unknown)';
++    if (isNew) info += ' - New';
++    if (label) info += ' - ' + label;
++    row.status = status;
++    row.installedVersion = installedVersion;
++    row.repoLabel = label;
++    row.newlyDiscovered = isNew;
++    row.infoText = info;
++    return row;
++  });
++}
++
++function lower(value) {
++  return value === null || value === undefined ? '' : String(value).toLowerCase();
++}
++
++function select(rows, options) {
++  options = options || {};
++  var mode = options.mode || 'all';
++  var query = lower(options.query).replace(/^\s+|\s+$/g, '');
++  var repository = options.repo || '';
++  var selected = (rows || []).filter(function (row) {
++    if (mode === 'updates' && row.status !== 'update') return false;
++    if (mode === 'installed' && row.status !== 'installed' && row.status !== 'update') return false;
++    if (mode === 'new' && !row.newlyDiscovered) return false;
++    if (repository && row.repository !== repository) return false;
++    if (query) {
++      var searchable = [row.title, row.id, row.repository, row.repoLabel].map(lower).join(' ');
++      if (searchable.indexOf(query) === -1) return false;
++    }
++    return true;
++  });
++  selected.sort(function (left, right) {
++    var a = lower(left.title);
++    var b = lower(right.title);
++    var comparison = a < b ? -1 : a > b ? 1 : 0;
++    if (comparison && options.descending) comparison = -comparison;
++    if (!comparison) {
++      a = lower(left.uid);
++      b = lower(right.uid);
++      comparison = a < b ? -1 : a > b ? 1 : 0;
++    }
++    return comparison;
++  });
++  return selected;
++}
++
++function counts(rows) {
++  var unique = {updates: {}, installed: {}, newlyDiscovered: {}};
++  var result = {all: (rows || []).length, updates: 0, installed: 0, newlyDiscovered: 0};
++  (rows || []).forEach(function (row) {
++    var id = row.id || row.uid;
++    if (row.status === 'update') unique.updates[id] = true;
++    if (row.status === 'installed' || row.status === 'update') unique.installed[id] = true;
++    if (row.newlyDiscovered) unique.newlyDiscovered[id] = true;
++  });
++  Object.keys(unique.updates).forEach(function (id) { result.updates++; });
++  Object.keys(unique.installed).forEach(function (id) { result.installed++; });
++  Object.keys(unique.newlyDiscovered).forEach(function (id) { result.newlyDiscovered++; });
++  return result;
++}
++
++function createTracker(storage) {
++  var seen = {};
++  var newKeys = {};
++  var loaded = false;
++  var baselineExists = false;
++  try {
++    if (storage && typeof storage.getItem === 'function') {
++      var raw = storage.getItem(TRACKER_KEY);
++      if (raw) {
++        var saved = JSON.parse(raw);
++        if (saved && saved.version === 1 && saved.seen && typeof saved.seen === 'object') {
++          seen = saved.seen;
++          baselineExists = true;
++        }
++      }
++    }
++  } catch (err) {
++    seen = {};
++    baselineExists = false;
++  }
++  loaded = true;
++  var compareAgainstBaseline = baselineExists;
++
++  function persist() {
++    try {
++      if (storage && typeof storage.setItem === 'function') {
++        storage.setItem(TRACKER_KEY, JSON.stringify({version: 1, seen: seen}));
++      }
++    } catch (err) {
++      // Storage may be unavailable; this feature must not block catalog use.
++    }
++  }
++
++  return {
++    observe: function (entries) {
++      if (!loaded) return {};
++      (entries || []).forEach(function (entry) {
++        if (!entry || !entry.uid) return;
++        if (compareAgainstBaseline && !seen[entry.uid]) newKeys[entry.uid] = true;
++        seen[entry.uid] = true;
++      });
++      persist();
++      var result = {};
++      Object.keys(newKeys).forEach(function (key) { result[key] = true; });
++      return result;
++    }
++  };
++}
++
++module.exports = {
++  compareVersions: compareVersions,
++  decorate: decorate,
++  select: select,
++  counts: counts,
++  repoLabel: repoLabel,
++  createTracker: createTracker,
++};
+diff --git a/frontend/views/BrowserPanel.js b/frontend/views/BrowserPanel.js
+index 0afe3bd..09d60d9 100644
+--- a/frontend/views/BrowserPanel.js
++++ b/frontend/views/BrowserPanel.js
+@@ -1,204 +1,243 @@
+-var
+-  kind = require('enyo/kind'),
++var kind = require('enyo/kind'),
+   Model = require('enyo/Model'),
+   DetailsPanel = require('./DetailsPanel'),
+   Overlay = require('moonstone/Overlay'),
+   Item = require('moonstone/Item'),
+   IconButton = require('moonstone/IconButton'),
++  Button = require('moonstone/Button'),
++  Input = require('moonstone/Input'),
++  InputDecorator = require('moonstone/InputDecorator'),
+   Scroller = require('moonstone/Scroller'),
+   MoonImage = require('moonstone/Image'),
+-  EnyoImage = require('enyo/Image'),
+   Marquee = require('moonstone/Marquee'),
+   Panel = require('moonstone/Panel'),
+-  Source = require('enyo/Source'),
+   Popup = require('moonstone/Popup'),
+   Spinner = require('moonstone/Spinner'),
+   DataGridList = require('moonstone/DataGridList'),
+-  GridListImageItem = require('moonstone/GridListImageItem'), // FIXME: we use styles from that :/
+-  AjaxSource = require('enyo/AjaxSource'),
+   Ajax = require('enyo/Ajax'),
+   Collection = require('enyo/Collection'),
+   LunaService = require('enyo-webos/LunaService'),
+   ConfigUtils = require('../configutils.js'),
++  Browser = require('../catalog-browser'),
++  resolveURL = require('../baseurl').resolveURL,
+   SettingsPanel = require('./SettingsPanel.js');
+ 
+-// TODO: Support pagniation https://repo.webosbrew.org/api/apps/{page}.json
+-// Page starts with 1
+-
+-var RepoPackageModel = kind({
+-  kind: Model,
+-  name: "RepoPackageModel",
+-  primaryKey: "uid",
+-});
+-
+-var NestedSource = kind({
+-  kind: Source,
+-  name: 'NestedSource',
+-  collection: null,
+-  fetch: function (model, opts) {
+-    console.info('NestedSource.fetch()', model, opts, this.collection);
+-    this.collection.fetch({
+-      success: function(col, _, result) {
+-        console.info('nested success:', result, col);
+-        if (result.length === 1 && result[0].attributes.repository === null) {
+-          col.errorCode = '600';
+-          opts.error([], '600');
+-        } else {
+-          opts.success(result);
+-        }
+-      },
+-      error: function(col, state, next, errorCode) {
+-        console.info('nested error:', arguments, this);
+-        col.errorCode = errorCode;
+-        opts.error([], errorCode);
+-      },
+-    });
+-  },
+-});
+-
++var RepoPackageModel = kind({kind: Model, name: 'RepoPackageModel', primaryKey: 'uid'});
+ var AppListItem = kind({
+-  name: 'AppListItem',
+   kind: Item,
+-  classes: 'moon-gridlist-imageitem horizontal-gridList-item horizontal-gridList-image-item', //  moon-imageitem',
++  classes: 'moon-gridlist-imageitem horizontal-gridList-item horizontal-gridList-image-item',
+   mixins: [Overlay.Support, Overlay.Selection],
+-
+   components: [
+-    {
+-      kind: MoonImage,
+-      name: 'img',
+-      // placeholder: EnyoImage.placeholder,
+-      style: 'width: 4.25rem; height: 4.25rem; float: left; padding-right: 1rem; padding-top: 0.25rem',
+-      sizing: 'contain',
+-    },
++    {kind: MoonImage, name: 'img', style: 'width:4.25rem;height:4.25rem;float:left;padding-right:1rem;padding-top:0.25rem', sizing: 'contain'},
+     {name: 'caption', classes: 'caption', kind: Marquee.Text},
+-    {name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text},
++    {name: 'subCaption', classes: 'sub-caption', kind: Marquee.Text}
+   ],
+-  published: {
+-    caption: '',
+-    subCaption: '',
+-  },
+-
+   bindings: [
+     {from: 'model.title', to: '$.caption.content'},
+-    {from: 'model.id', to: '$.subCaption.content'},
+-    {from: 'model.iconUri', to: '$.img.src'},
++    {from: 'model.infoText', to: '$.subCaption.content'},
++    {from: 'model.iconUri', to: '$.img.src'}
+   ]
+ });
+ 
+ module.exports = kind({
+-  name: 'BrowserPanel',
+-  kind: Panel,
+-  title: 'Homebrew Channel',
+-  titleBelow: 'webosbrew.org',
+-  headerType: 'medium',
++  name: 'BrowserPanel', kind: Panel, title: 'Homebrew Channel',
++  titleBelow: 'Catalog browser mod', headerType: 'medium',
+   headerComponents: [
+     {kind: IconButton, icon: 'rollbackward', ontap: 'refresh'},
+-    {kind: IconButton, icon: 'gear', ontap: 'openSettings'},
++    {kind: IconButton, icon: 'gear', ontap: 'openSettings'}
+   ],
+   components: [
++    {name: 'filters', style: 'padding-bottom:0.6rem', components: [
++      {classes: 'moon-hspacing', components: [
++        {kind: Button, name: 'allButton', content: 'All apps', mode: 'all', ontap: 'chooseMode', small: true},
++        {kind: Button, name: 'updatesButton', content: 'Updates (checking)', mode: 'updates', ontap: 'chooseMode', small: true},
++        {kind: Button, name: 'installedButton', content: 'Installed', mode: 'installed', ontap: 'chooseMode', small: true},
++        {kind: Button, name: 'newButton', content: 'Newly discovered', mode: 'new', ontap: 'chooseMode', small: true}
++      ]},
++      {classes: 'moon-hspacing', style: 'margin-top:0.7rem', components: [
++        {kind: InputDecorator, style: 'width:43%;display:inline-block;vertical-align:middle', components: [
++          {kind: Input, name: 'search', placeholder: 'Search apps or app IDs', style: 'width:100%', oninput: 'searchChanged', onchange: 'searchChanged'}
++        ]},
++        {kind: Button, name: 'catalogButton', content: 'Catalog: All', ontap: 'showCatalogs', small: true, style: 'max-width:30%;overflow:hidden;vertical-align:middle'},
++        {kind: Button, name: 'sortButton', content: 'Sort: A-Z', ontap: 'toggleSort', small: true, style: 'vertical-align:middle'}
++      ]},
++      {name: 'summary', content: 'Loading catalogs...', style: 'padding-top:0.6rem;font-size:0.85rem;color:#aaa'},
++      {name: 'emptyMessage', showing: false, content: 'No apps match these filters.', style: 'padding:0.5rem 0;color:#ddd'}
++    ]},
++    {name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 140,
++      kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true},
++      components: [{kind: AppListItem}], ontap: 'itemSelected'},
+     {kind: Spinner, name: 'spinner', content: 'Loading...', center: true, middle: true},
+-    {kind: Popup, name: 'errorPopup', content: 'An error occured while downloading some repositories.', modal: false, autoDismiss: true, allowBackKey: true},
+-    {
+-      name: 'appList', selection: false, fit: true, spacing: 20, minWidth: 500, minHeight: 120, kind: DataGridList, scrollerOptions: {kind: Scroller, vertical: 'scroll', horizontal: 'hidden', spotlightPagingControls: true}, components: [
+-        {kind: AppListItem}
+-      ], ontap: 'itemSelected',
+-    },
++    {kind: Popup, name: 'errorPopup', content: 'Some catalogs could not be read.', modal: false, autoDismiss: true, allowBackKey: true},
++    {kind: Popup, name: 'catalogPopup', modal: true, autoDismiss: true, allowBackKey: true, components: [
++      {content: 'Choose catalog', style: 'font-size:1.3rem;padding-bottom:1rem'},
++      {kind: Scroller, name: 'catalogChoices', style: 'width:42rem;height:25rem', vertical: 'scroll', horizontal: 'hidden'}
++    ]},
++    {kind: LunaService, name: 'appInfoCall', service: 'luna://org.webosbrew.hbchannel.service', method: 'getAppInfo', timeout: 15000},
+     {kind: LunaService, name: 'updateStartupScript', service: 'luna://org.webosbrew.hbchannel.service', method: 'updateStartupScript'},
+-    {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'},
+-  ],
+-  bindings: [
+-    {from: 'repository', to: '$.appList.collection'},
+-    {
+-      from: 'repository.status', to: '$.spinner.showing', transform: function (value) {
+-        return this.repository.isBusy() && !this.repository.isError();
+-      }
+-    },
+-    {
+-      from: 'repository.status', to: '$.errorPopup.showing', transform: function (value) {
+-        return this.repository.isError();
+-      }
+-    },
+-    {
+-      from: 'repository.status', to: '$.errorPopup.content', transform: function (value) {
+-        var statusList = this.repository.source ? this.repository.source.filter(function(s) { return s.collection.errorCode !== undefined; }).map(function(s) { console.info(s.collection); return s.collection.url + ' (' + s.collection.errorCode + ')'; }).filter(Boolean).join(', ') : '';
+-        return 'An error occured while downloading some repositories:\n'+statusList;
+-      }
+-    },
++    {kind: LunaService, name: 'autostart', service: 'luna://org.webosbrew.hbchannel.service', method: 'autostart'}
+   ],
+   create: function () {
+     this.inherited(arguments);
++    var storage;
++    try { storage = window.localStorage; } catch (e) { storage = null; }
++    this._tracker = Browser.createTracker(storage);
++    this._mode = 'all'; this._repo = ''; this._descending = false;
++    this._generation = 0;
++    this._visible = new Collection({model: RepoPackageModel});
++    this.$.appList.set('collection', this._visible);
+     this.refresh();
+-
+     this.$.updateStartupScript.send({});
+     this.$.autostart.send({});
+   },
+-
++  destroy: function () {
++    this._generation++;
++    clearTimeout(this._viewTimer);
++    this.inherited(arguments);
++  },
+   transitionFinished: function (evt) {
+-    if (!evt.isOffscreen) {
+-      console.info('transitionFinished:', evt);
+-      this.refresh();
+-    }
++    if (!evt.isOffscreen) this.refresh();
+   },
+-
+   refresh: function () {
+-    console.info('refresh');
+-
+-    this.loadRepositories(ConfigUtils.getRepositories());
++    var self = this, generation = ++this._generation;
++    this._entries = []; this._uids = {}; this._inventory = {};
++    this._inventoryQueue = []; this._inventoryActive = 0;
++    this._manifestQueue = []; this._manifestActive = 0;
++    this._errors = []; this._repos = ConfigUtils.getRepositories();
++    this._remaining = this._repos.length;
++    if (this._repo && this._repos.indexOf(this._repo) < 0) this._repo = '';
++    this.$.spinner.set('showing', this._remaining > 0);
++    this._renderView();
++    this._repos.forEach(function (url) { self._fetchPage(url, url, 1, generation); });
+   },
+-
+-  loadRepositories: function (repos) {
+-    console.info('Loading from:', repos);
+-    if (repos.length === 0) {
+-      this.set('repository', new Collection([]));
+-    } else {
+-      this.set('repository', new Collection({
+-        model: RepoPackageModel,
+-        source: repos.map(function (url) {
+-          return new NestedSource({
+-            collection: new Collection({
+-              model: RepoPackageModel,
+-              url: url,
+-              source: new AjaxSource(),
+-              options: {parse: true},
+-              parse: function (data) {
+-                try {
+-                  if (data && data.packages) {
+-                    data.packages.forEach(function (element) {
+-                      element.uid = element.id + '|' + url;
+-                      element.repository = url;
+-                      element.official = url === ConfigUtils.repositoryBaseURL;
+-                    });
+-                    return data.packages;
+-                  }
+-                } catch (err) { console.warn('parsing failed', err, arguments, this); }
+-
+-                // This is very dirty. We don't have a way of indicating an
+-                // invalid repository to NestedResource. Since uid is generated
+-                // by our code, let's just assume `null` uid is an indicator of
+-                // a failed parse...
+-                return [{repository: null}];
+-              },
+-            }),
+-          });
+-        }),
+-      }));
+-      this.repository.fetch();
++  _fetchPage: function (repo, url, page, generation) {
++    var self = this;
++    new Ajax({url: url, handleAs: 'json', timeout: 20000})
++      .response(function (request, data) {
++        if (generation !== self._generation) return;
++        if (!data || !Array.isArray(data.packages)) return self._repoDone(repo, 'Invalid catalog', generation);
++        var added = [];
++        data.packages.forEach(function (entry) {
++          if (!entry || typeof entry.id !== 'string') return;
++          var uid = entry.id + '|' + repo;
++          if (self._uids[uid]) return;
++          var copy = {};
++          Object.keys(entry).forEach(function (key) { copy[key] = entry[key]; });
++          copy.uid = uid; copy.repository = repo; copy.official = repo === ConfigUtils.repositoryBaseURL;
++          if (copy.manifestUrl) copy.manifestUrl = resolveURL(copy.manifestUrl, url);
++          self._uids[uid] = true; self._entries.push(copy); added.push(copy);
++          if (!self._inventory[copy.id]) {
++            self._inventory[copy.id] = {known: false}; self._inventoryQueue.push(copy.id);
++          }
++          if (!copy.manifest && copy.manifestUrl) self._manifestQueue.push(copy);
++        });
++        self._newKeys = self._tracker.observe(added);
++        self._pumpInventory(generation); self._pumpManifests(generation); self._scheduleView();
++        var max = Number(data.paging && data.paging.maxPage) || 1;
++        if (page < max && page < 50 && /\.json(?:\?.*)?$/.test(repo)) {
++          var next = repo.replace(/\.json(?:\?.*)?$/, '') + '/' + (page + 1) + '.json';
++          self._fetchPage(repo, next, page + 1, generation);
++        } else self._repoDone(repo, null, generation);
++      })
++      .error(function () { self._repoDone(repo, 'Download failed', generation); }).go();
++  },
++  _repoDone: function (repo, error, generation) {
++    if (generation !== this._generation) return;
++    if (error) this._errors.push(Browser.repoLabel(repo) + ': ' + error);
++    this._remaining = Math.max(0, this._remaining - 1);
++    this.$.spinner.set('showing', this._remaining > 0 && !this._entries.length);
++    if (!this._remaining && this._errors.length) {
++      this.$.errorPopup.set('content', this._errors.join('\n')); this.$.errorPopup.show();
+     }
++    this._scheduleView();
+   },
+-
+-  events: {
+-    onRequestPushPanel: ''
++  _pumpInventory: function (generation) {
++    var self = this;
++    while (this._inventoryActive < 3 && this._inventoryQueue.length) {
++      (function (id) {
++        self._inventoryActive++;
++        var settled = false;
++        function finish(info, error) {
++          if (settled || generation !== self._generation) return;
++          settled = true; self._inventoryActive--;
++          if (info && typeof info.version === 'string') self._inventory[id] = {known: true, version: info.version};
++          else if (!error || /Invalid appId|unsupported application type/i.test(String(error.errorText || error.message || ''))) self._inventory[id] = {known: true, version: null};
++          else self._inventory[id] = {known: false, failed: true};
++          self._pumpInventory(generation); self._scheduleView();
++        }
++        self.$.appInfoCall.send({id: id})
++          .response(function (request, response) { finish(response.appInfo, null); })
++          .error(function (request, response) { finish(null, response); });
++      })(this._inventoryQueue.shift());
++    }
+   },
+-  itemSelected: function (sender, ev) {
+-    if (ev.model) {
+-      this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
++  _pumpManifests: function (generation) {
++    var self = this;
++    while (this._manifestActive < 3 && this._manifestQueue.length) {
++      (function (entry) {
++        self._manifestActive++;
++        function done() {
++          if (generation !== self._generation) return;
++          self._manifestActive--; self._pumpManifests(generation); self._scheduleView();
++        }
++        new Ajax({url: entry.manifestUrl, handleAs: 'json', timeout: 20000})
++          .response(function (request, data) {
++            if (generation !== self._generation) return;
++            if (data && typeof data.version === 'string') entry.manifest = data;
++            done();
++          }).error(done).go();
++      })(this._manifestQueue.shift());
++    }
++  },
++  _scheduleView: function () {
++    var self = this;
++    clearTimeout(this._viewTimer);
++    this._viewTimer = setTimeout(function () { if (!self.destroyed) self._renderView(); }, 150);
++  },
++  _renderView: function () {
++    var rows = Browser.decorate(this._entries || [], this._inventory || {}, this._newKeys || {});
++    var counts = Browser.counts(rows);
++    var visible = Browser.select(rows, {mode: this._mode, query: this.$.search.get('value') || '', repo: this._repo, descending: this._descending});
++    var pending = this._inventoryQueue.length + this._inventoryActive + this._manifestQueue.length + this._manifestActive;
++    this.$.allButton.set('content', 'All apps (' + counts.all + ')');
++    this.$.updatesButton.set('content', 'Updates (' + counts.updates + (pending || this._remaining ? '...' : '') + ')');
++    this.$.installedButton.set('content', 'Installed (' + counts.installed + ')');
++    this.$.newButton.set('content', 'Newly discovered (' + counts.newlyDiscovered + ')');
++    var self = this;
++    ['all', 'updates', 'installed', 'new'].forEach(function (mode, i) {
++      var button = [self.$.allButton, self.$.updatesButton, self.$.installedButton, self.$.newButton][i];
++      button.applyStyle('box-shadow', mode === self._mode ? 'inset 0 -0.18rem #e89d35' : null);
++    });
++    this.$.catalogButton.set('content', 'Catalog: ' + (this._repo ? Browser.repoLabel(this._repo) : 'All'));
++    this.$.sortButton.set('content', this._descending ? 'Sort: Z-A' : 'Sort: A-Z');
++    var status = visible.length + ' catalog entries shown';
++    if (this._remaining) status += ' | Loading ' + this._remaining + ' catalogs';
++    if (pending) status += ' | Checking installed versions';
++    if (this._errors.length) status += ' | ' + this._errors.length + ' catalog errors';
++    this.$.summary.set('content', status);
++    this.$.emptyMessage.set('showing', !visible.length && !this._remaining && !pending);
++    var signature = visible.map(function (row) { return row.uid + '\n' + row.infoText; }).join('\n');
++    if (signature !== this._viewSignature) {
++      this._viewSignature = signature;
++      this._visible.empty(visible, {destroy: true});
+     }
+   },
+-  openSettings: function (sender, ev) {
+-    this.doRequestPushPanel({
+-      panel: {
+-        kind: SettingsPanel,
+-      }
++  chooseMode: function (sender) { this._mode = sender.mode; this._renderView(); },
++  searchChanged: function () { this._scheduleView(); },
++  toggleSort: function () { this._descending = !this._descending; this._renderView(); },
++  showCatalogs: function () {
++    var self = this;
++    this.$.catalogChoices.destroyClientControls();
++    [{url: '', label: 'All catalogs'}].concat(this._repos.map(function (url) { return {url: url, label: Browser.repoLabel(url)}; })).forEach(function (entry) {
++      self.$.catalogChoices.createComponent({kind: Item, content: entry.label,
++        catalogURL: entry.url, ontap: 'chooseCatalog'}, {owner: self});
+     });
++    this.$.catalogChoices.render(); this.$.catalogPopup.show();
++  },
++  chooseCatalog: function (sender) { this._repo = sender.catalogURL; this.$.catalogPopup.hide(); this._renderView(); },
++  events: {onRequestPushPanel: ''},
++  itemSelected: function (sender, ev) {
++    if (ev.model) this.doRequestPushPanel({panel: {kind: DetailsPanel, model: ev.model, repositoryURL: ev.model.get('repository')}});
+   },
++  openSettings: function () { this.doRequestPushPanel({panel: {kind: SettingsPanel}}); }
+ });
+diff --git a/tools/test-catalog-browser.js b/tools/test-catalog-browser.js
+new file mode 100644
+index 0000000..247eee9
+--- /dev/null
++++ b/tools/test-catalog-browser.js
+@@ -0,0 +1,93 @@
++var assert = require('assert');
++var catalog = require('../frontend/catalog-browser');
++
++function testVersions() {
++  assert.strictEqual(catalog.compareVersions('1.0.10', '1.0.9c'), 1);
++  assert.strictEqual(catalog.compareVersions('1.0.9c', '1.0.9'), -1);
++  assert.strictEqual(catalog.compareVersions('1.0.9.2', '1.0.9.1'), 1);
++  assert.strictEqual(catalog.compareVersions('2.0.0', '10.0.0'), -1);
++  assert.strictEqual(catalog.compareVersions('1.2.0', '1.2'), 0);
++  assert.strictEqual(catalog.compareVersions('1.2.3', '1.2.3-rc.9'), 1);
++  assert.strictEqual(catalog.compareVersions('1.2.3-alpha.10', '1.2.3-alpha.2'), 1);
++  assert.strictEqual(catalog.compareVersions('1.2.3-alpha.2', '1.2.3-alpha.beta'), -1);
++  assert.strictEqual(catalog.compareVersions('1.2.3+build.2', '1.2.3+build.1'), 0);
++  assert.strictEqual(catalog.compareVersions('1.x', '1.0'), null);
++  assert.strictEqual(catalog.compareVersions('1..2', '1.0'), null);
++  assert.strictEqual(catalog.compareVersions('1.2.3-', '1.2.3'), null);
++}
++
++function sampleRows() {
++  return [
++    {uid: 'app|repo-a', id: 'app', title: 'Alpha', repository: 'https://github.com/owner/repo-a', manifest: {version: '2.0'}},
++    {uid: 'app|repo-b', id: 'app', title: 'Alpha', repository: 'https://github.com/owner/repo-b', manifest: {version: '1.0'}},
++    {uid: 'other|repo-a', id: 'other', title: 'Beta Tool', repository: 'https://example.org/apps', manifest: {version: '1.0'}},
++  ];
++}
++
++function testDecorationAndSelection() {
++  var rows = catalog.decorate(sampleRows(), {
++    app: {known: true, version: '1.0'},
++    other: {known: true, version: null},
++  }, {'app|repo-a': true});
++  assert.deepStrictEqual(rows.map(function (row) { return row.status; }), ['update', 'installed', 'available']);
++  assert.strictEqual(rows[0].installedVersion, '1.0');
++  assert.ok(rows[0].infoText.indexOf('New') !== -1);
++  assert.strictEqual(rows[0].repoLabel, 'owner/repo-a');
++  assert.strictEqual(catalog.decorate([sampleRows()[0]], {}, [])[0].status, 'unknown');
++
++  assert.strictEqual(catalog.select(rows, {mode: 'updates'}).length, 1);
++  assert.strictEqual(catalog.select(rows, {mode: 'installed'}).length, 2);
++  assert.strictEqual(catalog.select(rows, {mode: 'new'}).length, 1);
++  assert.strictEqual(catalog.select(rows, {query: 'repo-b'}).length, 1);
++  assert.strictEqual(catalog.select(rows, {query: 'beta'}).length, 1);
++  assert.strictEqual(catalog.select(rows, {repo: 'https://github.com/owner/repo-b'}).length, 1);
++  assert.deepStrictEqual(catalog.select(rows, {}).map(function (row) { return row.uid; }), ['app|repo-a', 'app|repo-b', 'other|repo-a']);
++  assert.deepStrictEqual(catalog.select(rows, {descending: true}).map(function (row) { return row.title; }), ['Beta Tool', 'Alpha', 'Alpha']);
++  assert.deepStrictEqual(catalog.counts(rows), {all: 3, updates: 1, installed: 1, newlyDiscovered: 1});
++
++  var duplicateRows = catalog.decorate([
++    sampleRows()[0],
++    {uid: 'app|repo-c', id: 'app', title: 'Alpha duplicate', repository: 'https://example.org', manifest: {version: '3.0'}},
++  ], {app: {known: true, version: '1.0'}}, {'app|repo-a': true, 'app|repo-c': true});
++  assert.deepStrictEqual(catalog.counts(duplicateRows), {all: 2, updates: 1, installed: 1, newlyDiscovered: 1});
++  assert.strictEqual(catalog.repoLabel('https://raw.githubusercontent.com/owner/repo/main/repo.json'), 'owner/repo');
++}
++
++function memoryStorage(initial) {
++  var values = initial || {};
++  return {
++    values: values,
++    getItem: function (key) { return values[key] || null; },
++    setItem: function (key, value) { values[key] = value; },
++  };
++}
++
++function testDiscoveryTracker() {
++  var storage = memoryStorage();
++  var first = catalog.createTracker(storage);
++  assert.deepStrictEqual(first.observe([{uid: 'a'}]), {});
++  assert.deepStrictEqual(first.observe([{uid: 'b'}]), {});
++
++  var nextVisit = catalog.createTracker(storage);
++  assert.deepStrictEqual(nextVisit.observe([{uid: 'a'}, {uid: 'b'}, {uid: 'c'}]), {c: true});
++  assert.deepStrictEqual(nextVisit.observe([{uid: 'a'}, {uid: 'b'}, {uid: 'c'}, {uid: 'd'}]), {c: true, d: true});
++
++  var followingVisit = catalog.createTracker(storage);
++  assert.deepStrictEqual(followingVisit.observe([{uid: 'a'}, {uid: 'b'}, {uid: 'c'}, {uid: 'd'}]), {});
++}
++
++function testStorageFailure() {
++  var broken = {
++    getItem: function () { throw new Error('unavailable'); },
++    setItem: function () { throw new Error('unavailable'); },
++  };
++  var tracker = catalog.createTracker(broken);
++  assert.doesNotThrow(function () { tracker.observe([{uid: 'first'}]); });
++  assert.deepStrictEqual(tracker.observe([{uid: 'second'}]), {});
++}
++
++testVersions();
++testDecorationAndSelection();
++testDiscoveryTracker();
++testStorageFailure();
++console.log('catalog-browser helpers passed');
