@@ -76,16 +76,6 @@ Use it for remote control, app installation and removal, OLED panel care, privac
       <sub>The TV arrives over <a href="HOME-ASSISTANT/">MQTT Discovery</a> as a single unified device with its controls, sensors, and remote button events.</sub>
     </p>
 
-=== "Android app"
-
-    <p align="center">
-      <a href="screenshots/android-tvs.png"><img src="screenshots/android-tvs.png" alt="Android app showing online TVs" width="280"></a>
-      &nbsp;&nbsp;
-      <a href="screenshots/android-dashboard.png"><img src="screenshots/android-dashboard.png" alt="Android app showing the full-screen TV dashboard" width="280"></a>
-      <br>
-      <sub><a href="apps/android/">Glasshouse for Android</a> keeps a list of TVs, shows which are online, wakes them with Wake-on-LAN, and opens each dashboard full screen.</sub>
-    </p>
-
 === "Pane (macOS)"
 
     <p align="center">
@@ -179,12 +169,6 @@ This project is intended to give a rooted webOS TV a useful local control surfac
     ---
 
     An optional app on the home screen puts the same readings and controls on the TV, driven by the remote, for when there is no phone or laptop to hand.
-
--   **[Managing TVs from Android](apps/android.md)**
-
-    ---
-
-    A phone app that keeps a list of TVs, shows which are online, wakes them over Wake-on-LAN, and opens each one's dashboard full screen.
 
 -   **[Menu-bar remote for macOS](apps/pane.md)**
 

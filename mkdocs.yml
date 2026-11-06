@@ -57,7 +57,6 @@ nav:
       - Tools: dashboard/tools.md
   - Glasshouse apps:
       - The TV app: apps/tv-app.md
-      - Android app: apps/android.md
       - Pane (macOS): apps/pane.md
       - Pane (iOS): apps/pane-ios.md
   - Smart Home & Lighting:
@@ -95,6 +94,7 @@ nav:
 
 # Kept until the Homebrew Channel listing is live (webosbrew/apps-repo#261).
 not_in_nav: |
+  /apps/android.md
   /install-homebrew-channel.md
   /dashboard/tv-app.md
 
