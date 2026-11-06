@@ -43,7 +43,7 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 
 ## Install Glasshouse Mod
 
-Follow the [fork installation guide (Deutsch)](docs/fork-installation.md) to install the published IPK or upgrade an existing official Glasshouse installation in place. Download packages from [this fork's releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest). The built-in updater follows this fork after installation.
+Follow the [fork installation guide](docs/fork-installation.md) to install the published IPK or upgrade an existing official Glasshouse installation in place. Download packages from [this fork's releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest). The built-in updater follows this fork after installation.
 
 ![Glasshouse Mod on LG G5: centered Apps and Inputs, weather beside the clock and Waldsee wallpaper](docs/screenshots/glasshouse-mod-home.png)
 

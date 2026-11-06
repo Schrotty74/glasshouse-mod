@@ -2,7 +2,7 @@
 
 # Glasshouse Mod
 
-Weather beside the clock, centered Apps and Inputs rows, and four Waldsee wallpapers. [Install this fork (Deutsch)](fork-installation.md) or download an IPK from [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest).
+Weather beside the clock, centered Apps and Inputs rows, and four Waldsee wallpapers. [Install this fork](fork-installation.md) or download an IPK from [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest).
 
 **Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 

@@ -1,6 +1,6 @@
 # Installing from the Homebrew Channel
 
-The standard Homebrew Channel listing installs official Glasshouse. For Glasshouse Mod, use the IPK from this fork and follow [Installing this fork (Deutsch)](fork-installation.md).
+The standard Homebrew Channel listing installs official Glasshouse. For Glasshouse Mod, use the IPK from this fork and follow [Installing this fork](fork-installation.md).
 
 1. Open the Homebrew Channel, find **Glasshouse**, and install it.
 2. Open **Glasshouse** from the home screen. The first launch puts the server in place, which takes a few seconds.

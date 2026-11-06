@@ -1,6 +1,6 @@
 # Installing
 
-For Glasshouse Mod packages and migration from the official version, follow [Installing this fork (Deutsch)](fork-installation.md). The computer deployment method below also installs this fork from its working branch.
+For Glasshouse Mod packages and migration from the official version, follow [Installing this fork](fork-installation.md). The computer deployment method below also installs this fork from its working branch.
 
 ## Quick start
 
