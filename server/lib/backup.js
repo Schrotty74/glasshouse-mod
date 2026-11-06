@@ -39,6 +39,17 @@ var SECTIONS = ['promotions', 'sound', 'devices', 'hdmi'];
 function isString(v) { return typeof v === 'string' && v.length <= 260; }
 function isBool(v) { return typeof v === 'boolean'; }
 function isPort(v) { return typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 65535; }
+function isCatalogList(v) {
+  if (Object.prototype.toString.call(v) !== '[object Array]' || v.length > 10) return false;
+  var seen = {};
+  for (var i = 0; i < v.length; i++) {
+    if (typeof v[i] !== 'string' || v[i].length > 2048 ||
+        !/^https:\/\/[^\s/@]+(?:\/[^\s]*)?$/.test(v[i]) ||
+        v[i] === 'https://repo.webosbrew.org/api/apps.json' || seen[v[i]]) return false;
+    seen[v[i]] = true;
+  }
+  return true;
+}
 var GLASSHOUSE = {
   logging: { level: function (v) { return v === 'quiet' || v === 'info' || v === 'debug'; } },
   syslog: {
@@ -56,7 +67,8 @@ var GLASSHOUSE = {
   backup: { daily: isBool },
   screenTime: screentime.VALID,
   prometheus: { enabled: isBool },
-  update: { check: isBool }
+  update: { check: isBool },
+  apps: { repos: isCatalogList }
 };
 
 /** @type {typeof import('./lgsettings')} */
@@ -139,6 +151,20 @@ function pickGlasshouse(src) {
   return out;
 }
 
+// The effective catalog selection, including fork defaults before the user
+// edits it, belongs in the backup. Import never enables arbitrary sideloading.
+function backupGlasshouse() {
+  var saved = pickGlasshouse(config);
+  if (repo && repo.repoUrls) {
+    var urls = repo.repoUrls().slice(1);
+    if (isCatalogList(urls)) {
+      saved.apps = saved.apps || {};
+      saved.apps.repos = urls;
+    }
+  }
+  return saved;
+}
+
 // A row's value as the dashboard sets it: true or false for a switch.
 function rowSetting(row) {
   return row.type === 'switch' ? row.on : row.value;
@@ -163,7 +189,7 @@ function create(cb) {
         created: new Date().toISOString(),
         from: { model: from.model || null, glasshouse: from.version || null },
         lg: lg,
-        glasshouse: pickGlasshouse(config),
+        glasshouse: backupGlasshouse(),
         home: home ? home.layout() : undefined,
         apps: apps
       });
@@ -210,6 +236,7 @@ function restore(backup, cb) {
           restoreHome(backup.home, function (homeRestored) {
             restoreGlasshouse(backup.glasshouse, result, function (r) {
               r.apps = apps;
+              if (r.glasshouse && r.glasshouse.indexOf('apps.repos') !== -1 && repo && repo.forget) repo.forget();
               r.home = !!(homeRestored && homeRestored.ok);
               if (homeRestored && !homeRestored.ok) {
                 r.ok = false;
