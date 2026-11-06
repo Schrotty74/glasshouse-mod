@@ -3,7 +3,7 @@
 > [!NOTE]
 > **Experimental (webOS 4, 5, 6, 7, 9, 10 & 11):** Glasshouse Home replaces LG's built-in launcher when pressing **Home** or **Back** on the remote, or when the TV turns on. It is available on webOS 4, 5, 6, 7, 9, 10 and 11, and on webOS 3 and later versions when `"allowExperimentalHome": true` is set in `config.json`, and works on whichever port the dashboard is on. On webOS 4 (tried on a B8), LG's launcher is an in-compositor ribbon; Glasshouse Home runs as a standalone app (`com.tvweb.home`) launched by the remote key filter, and pressing Back dismisses it. It would run the same way on webOS 3, where it has not been tried. On webOS 5 and 6 (tried on a CX, two C1s and a B1), switching it on or off, or holding Home for LG's Home, restarts the TV's app manager, which closes the apps that are open; the Home tab says so on those TVs.
 
-![Glasshouse Home on an OLED55G36LA (webOS 9.2): clock and the Apps, Inputs and Channels rows over an uploaded afternoon wallpaper](../screenshots/home.jpg)
+![Glasshouse Mod on an LG G5: weather beside the clock, Last watched on the right, centered Apps and Inputs and the Waldsee night wallpaper](../screenshots/glasshouse-mod-home.png)
 
 ## What is on screen
 
@@ -320,13 +320,9 @@ The TV app's **Wallpaper** row moves through the four choices with OK.
 
     ![The same wallpaper with no darkening](../screenshots/home-darkening-off.jpg)
 
-=== "Afternoon wallpaper"
+=== "Waldsee wallpaper in this fork"
 
-    ![Glasshouse Home with an uploaded afternoon wallpaper](../screenshots/home.jpg)
-
-=== "Evening wallpaper"
-
-    ![Glasshouse Home with an uploaded evening wallpaper](../screenshots/home-evening.jpg)
+    ![Glasshouse Mod on LG G5 with the Waldsee night wallpaper](../screenshots/glasshouse-mod-home.png)
 
 === "Pure black (default)"
 

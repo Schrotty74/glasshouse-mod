@@ -35,7 +35,8 @@ theme:
 nav:
   - Home: index.md
   - Getting started:
-      - Installing: install.md
+      - Installing this fork (Deutsch): fork-installation.md
+      - Installing with a computer: install.md
       - Tested TVs: tested-tvs.md
       - Updating and uninstalling: managing.md
   - The dashboard:

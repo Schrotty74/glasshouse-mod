@@ -1,6 +1,8 @@
 <p align="center"><img src="logo/glasshouse-512.png" width="112" alt="Glasshouse logo: a G whose top is a roof"></p>
 
-# Glasshouse
+# Glasshouse Mod
+
+Weather beside the clock, centered Apps and Inputs rows, and four Waldsee wallpapers. [Install this fork (Deutsch)](fork-installation.md) or download an IPK from [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest).
 
 **Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 
@@ -34,7 +36,7 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 * **Access**: Rooted via [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Telnet or SSH. No external dependencies or internet access needed on the TV
 * **Tested hardware**: 66 TVs across 43 series verified so far (LF632V, UH600V, UH6030, UH610V, UH635V, B6, B7, SJ80, UJ63, B8, C8, LK61, UK63, LM57, UM71, UM73, C9, CX, GX, UN73, C1, UP80, UP81, QNED82, UQ80, C2, G2, C3, UR80, B4, G3, C4, G4, UT73, UT81, C5, G5, CS, LX3, UA73, C6, NU80, QNED84). Other rooted models should work; [see full table](tested-tvs.md)
 
-[Install](install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button }
+[Install this fork](fork-installation.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button }
 
 <div id="screenshots"></div>
 
@@ -51,11 +53,9 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 === "Glasshouse Home"
 
     <p align="center">
-      <a href="screenshots/home.jpg"><img src="screenshots/home.jpg" alt="Glasshouse Home on the TV screen with apps and inputs" width="440"></a>
-      &nbsp;
-      <a href="screenshots/home-evening.jpg"><img src="screenshots/home-evening.jpg" alt="Glasshouse Home with an evening colour theme" width="440"></a>
+      <a href="screenshots/glasshouse-mod-home.png"><img src="screenshots/glasshouse-mod-home.png" alt="Glasshouse Mod on LG G5: weather beside the clock, centered Apps and Inputs, Last watched on the right and Waldsee wallpaper" width="880"></a>
       <br>
-      <sub><a href="dashboard/home/">Glasshouse Home</a> replaces LG's ad-heavy launcher with a clean, instant app and input row on the TV.</sub>
+      <sub><a href="dashboard/home/">Glasshouse Mod Home</a> with the fork's layout and Waldsee night wallpaper.</sub>
     </p>
 
 === "TV app"

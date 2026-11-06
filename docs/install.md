@@ -1,5 +1,7 @@
 # Installing
 
+For Glasshouse Mod packages and migration from the official version, follow [Installing this fork (Deutsch)](fork-installation.md). The computer deployment method below also installs this fork from its working branch.
+
 ## Quick start
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
@@ -28,8 +30,8 @@ The models confirmed so far are listed under [Tested TVs](tested-tvs.md). LG nam
 Download the project onto a computer on the same network as the TV.
 
 ```bash
-git clone https://github.com/rorygallagher2024/glasshouse.git
-cd glasshouse/server
+git clone --branch launcher-weather-waldsee https://github.com/Schrotty74/glasshouse-mod.git
+cd glasshouse-mod/server
 ```
 
 ### 2. Install the dashboard
