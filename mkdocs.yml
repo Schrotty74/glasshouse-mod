@@ -36,6 +36,7 @@ nav:
   - Home: index.md
   - Getting started:
       - Installing this fork: fork-installation.md
+      - Homebrew Channel catalogs: homebrew-sources.md
       - Installing with a computer: install.md
       - Tested TVs: tested-tvs.md
       - Updating and uninstalling: managing.md

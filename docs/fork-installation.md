@@ -28,7 +28,7 @@ The fork uses the official app ID, so it replaces an existing Glasshouse app in 
 
 Keep this catalog enabled to receive future stable fork releases through the Homebrew Channel's update list. The default catalog also lists official Glasshouse under the same app ID; select **Glasshouse Mod** from the added fork catalog when choosing a package. Open Glasshouse after a package update to apply its service immediately; the running service also notices an updated package automatically.
 
-The catalog is generated from each release's package and checksum manifest. Its URL stays the same, while each listed package points to a specific release. The SSH method below is an alternative.
+The catalog is generated from each release's package and checksum manifest. Its URL stays the same, while each listed package points to a specific release. The SSH method below is an alternative. See [Homebrew Channel catalogs](homebrew-sources.md) for the other public sources used with this fork.
 
 ## 1. Download the package
 
