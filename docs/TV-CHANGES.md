@@ -211,3 +211,5 @@ dashboard and Home Assistant bridge carry on without it.
 ## Glasshouse Mod weather
 
 The weather location is saved as `local-weather-place.json` next to the Glasshouse configuration. The file contains the selected name, display label and coordinates. The dashboard can clear the selection with **Hide weather**. The current conditions are cached in memory. The TV contacts Open-Meteo when the launcher needs weather for the selected location and its cached response has expired.
+
+The fork build checks `Schrotty74/glasshouse-mod` for updates and downloads its release artifacts through the existing updater. Future installations stay on this fork when updated through the dashboard.

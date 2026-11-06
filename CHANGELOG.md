@@ -23,6 +23,10 @@ This release integrates the official Glasshouse 0.139.0 release and subsequent c
 - The TV retrieves weather through the Glasshouse service, reusing successful responses for one hour and retaining the existing temporary-failure behaviour.
 - The four Waldsee PNGs remain available for the morning, afternoon, evening and night wallpaper slots.
 
+### Fork updates
+
+The built-in update checker, source download and IPK manifest download use releases from `Schrotty74/glasshouse-mod`. Version links in the dashboard and package source metadata point to the fork. Published stable releases with a higher numeric version are offered through the existing Check now and Install flow.
+
 ### Distribution
 
 The release provides an installable IPK, its Homebrew Channel manifest, a source archive and the Waldsee wallpaper ZIP. It uses the official package installer to upgrade the existing Glasshouse installation in place. Settings, saved weather location, wallpaper uploads, app ordering and hidden tiles belong to the TV's data directory and are retained.

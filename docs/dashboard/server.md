@@ -12,6 +12,8 @@ The **Server** tab, `/?tab=server`, holds Glasshouse's own settings: Glasshouse 
 
 Shows the installed version and whether a newer release is out. **Check now** looks straight away, and **Install** appears when there is something to install, with **What's new**: a short summary of what each release since the installed one brings, newest first, and a link to its full notes. Package installs close the Glasshouse app and keep no rollback copy. For installs made with `deploy.sh`, **Roll back**, under the version, puts back the version installed before, after asking first. [Updating](../managing.md#updating) covers installs from before the tab existed.
 
+In Glasshouse Mod, the update checker and installer use [releases from this fork](https://github.com/Schrotty74/glasshouse-mod/releases). Publish a stable numeric tag such as `v0.139.2` with a matching code version. A Homebrew Channel installation also needs the IPK and its manifest, which the release workflow builds. A commit on the working branch alone does not create an offered update.
+
 **Check for updates daily** looks once a day on its own, and lets Home Assistant offer the update.
 
 **Update pop-up** shows a pop-up in the browser it is switched on in when a newer release is out, over whichever tab is open, with the release's one-line summary. **Update** installs it the way **Install** does, with its progress in the pop-up, and **Dismiss** leaves it until the next release. It is off by default and kept per browser. Where controls are off, the pop-up only says it is out.

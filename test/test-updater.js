@@ -207,4 +207,66 @@ console.log('Running test-updater.js ...');
   console.log('  ✓ each release since the installed one gives its summary, newest first, and older notes none');
 })();
 
-console.log('ALL test-updater.js assertions passed!\n');
+console.log('Core test-updater.js assertions passed!\n');
+
+// A fork update must not send a package installation back to upstream.
+(function testForkReleaseSource() {
+  var fs = require('fs');
+  var os = require('os');
+  var vm = require('vm');
+  var base = path.resolve(__dirname, '..', 'server', 'lib');
+  var requested = [];
+  var fakeFetch = Object.create(require('../server/lib/fetch'));
+  fakeFetch.init = function () {};
+  fakeFetch.probeFetch = function (url, output, callback) {
+    requested.push(url);
+    if (requested.length === 1) {
+      return callback(null, JSON.stringify([{
+        tag_name: 'v0.139.2',
+        html_url: 'https://github.com/Schrotty74/glasshouse-mod/releases/tag/v0.139.2',
+        body: 'Next fork build.\n\n## Details\nUpdate test.'
+      }]));
+    }
+    callback(null, '{}');
+  };
+  var sandbox = {
+    __dirname: base,
+    module: { exports: {} },
+    require: function (name) {
+      return name === './fetch' ? fakeFetch :
+        require(name.charAt(0) === '.' ? path.resolve(base, name) : name);
+    },
+    console: { log: function () {}, error: function () {} },
+    setTimeout: setTimeout, clearTimeout: clearTimeout,
+    setInterval: setInterval, clearInterval: clearInterval
+  };
+  vm.runInNewContext(fs.readFileSync(path.join(base, 'updater.js'), 'utf8'), sandbox);
+  var fork = sandbox.module.exports;
+  fork.init({
+    config: { allowControl: true },
+    version: '0.139.1',
+    viaHomebrewChannel: function () { return true; },
+    packageStageDir: path.join(os.tmpdir(), 'missing-fork-update-' + process.pid),
+    installPackage: function () { assert.fail('an invalid manifest must not install'); }
+  });
+  var checked = false, rejected = false;
+  fork.checkForUpdate(true, function (error, summary) {
+    assert.ifError(error);
+    checked = true;
+    assert.strictEqual(summary.available, true);
+    assert.strictEqual(summary.latest, '0.139.2');
+    assert.strictEqual(summary.url, 'https://github.com/Schrotty74/glasshouse-mod/releases/tag/v0.139.2');
+  });
+  fork.installUpdate(function (result) {
+    rejected = true;
+    assert.strictEqual(result.ok, false);
+    assert.ok(/manifest/.test(result.error));
+  });
+  assert.strictEqual(checked, true);
+  assert.strictEqual(rejected, true);
+  assert.deepEqual(requested, [
+    'https://api.github.com/repos/Schrotty74/glasshouse-mod/releases?per_page=10',
+    'https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.2/io.github.rorygallagher2024.lg-webos-dashboard.manifest.json'
+  ]);
+  console.log('  ✓ update checks and package manifests use the fork releases');
+})();

@@ -448,3 +448,5 @@ The audio route checks use a readable stream for request bodies, including
 the UTF-8 decoding used by every JSON POST.
 The split-character route fixture uses the server's buffer helper so it
 also runs on Node 0.10 and 0.12.
+
+The fork updater regression checks the GitHub releases API and package-manifest URL against `Schrotty74/glasshouse-mod`. An invalid manifest is rejected before package installation.
