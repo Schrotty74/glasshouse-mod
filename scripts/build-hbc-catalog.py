@@ -32,7 +32,7 @@ def build_catalog(manifest, ipk, tag):
         'ipkSize': ipk.stat().st_size,
     })
     return {
-        'paging': {'page': 1, 'maxPage': 1},
+        'paging': {'page': 1, 'count': 1, 'maxPage': 1, 'itemsTotal': 1},
         'packages': [{
             'id': APP_ID,
             'title': package['title'],

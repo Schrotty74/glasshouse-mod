@@ -450,3 +450,5 @@ The split-character route fixture uses the server's buffer helper so it
 also runs on Node 0.10 and 0.12.
 
 The fork updater regression checks the GitHub releases API and package-manifest URL against `Schrotty74/glasshouse-mod`. An invalid manifest is rejected before package installation.
+
+The fork catalog includes `page`, `count`, `maxPage` and `itemsTotal` so the webOS Dev Manager page validator accepts it as well as the Homebrew Channel.
