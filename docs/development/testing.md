@@ -207,7 +207,7 @@ change is merged.
 
 Publishing a release runs [`homebrew-channel.yml`](https://github.com/rorygallagher2024/glasshouse/blob/main/.github/workflows/homebrew-channel.yml), which builds the `.ipk`,
 attaches it and the Homebrew Channel manifest to the release, and records the
-package's sha256 in the manifest.
+package's sha256 in the manifest. The fork also runs `scripts/build-hbc-catalog.py`, which verifies the tag, app ID, IPK filename and SHA-256 before producing `dist/repo.json`. The workflow uploads this catalog beside the package and manifest. Users add `https://raw.githubusercontent.com/Schrotty74/glasshouse-mod/launcher-weather-waldsee/repo.json` once; subsequent stable releases supply their own catalog with version-specific package URLs. After uploading the assets, the release workflow updates the root `repo.json` on `launcher-weather-waldsee` through the GitHub API. It skips prereleases and releases that are no longer the latest stable version; the protected `main` branch is not written.
 
 A release's notes open with a short summary for people using Glasshouse, one
 to three plain lines, then a `## Details` heading with the full notes and their

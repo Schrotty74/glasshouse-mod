@@ -1,0 +1,30 @@
+{
+  "paging": {
+    "page": 1,
+    "maxPage": 1
+  },
+  "packages": [
+    {
+      "id": "io.github.rorygallagher2024.lg-webos-dashboard",
+      "title": "Glasshouse Mod",
+      "shortDescription": "Glasshouse with weather, centered Home rows and four Waldsee wallpapers for rooted LG TVs.",
+      "iconUri": "https://raw.githubusercontent.com/rorygallagher2024/glasshouse/main/server/assets/dashboard-app/assets/icon130.png",
+      "manifestUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.1/io.github.rorygallagher2024.lg-webos-dashboard.manifest.json",
+      "manifest": {
+        "id": "io.github.rorygallagher2024.lg-webos-dashboard",
+        "version": "0.139.1",
+        "type": "web",
+        "title": "Glasshouse Mod",
+        "appDescription": "Glasshouse with weather, centered Home rows and four Waldsee wallpapers for rooted LG TVs.",
+        "iconUri": "https://raw.githubusercontent.com/rorygallagher2024/glasshouse/main/server/assets/dashboard-app/assets/icon130.png",
+        "sourceUrl": "https://github.com/Schrotty74/glasshouse-mod",
+        "rootRequired": true,
+        "ipkUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.1/io.github.rorygallagher2024.lg-webos-dashboard_0.139.1_all.ipk",
+        "ipkHash": {
+          "sha256": "1a6834f2cbe36412a7a785c8ab006608476f586ca01f71d96c8687279bcb898d"
+        },
+        "ipkSize": 2086436
+      }
+    }
+  ]
+}

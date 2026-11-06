@@ -43,6 +43,12 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 
 ## Install Glasshouse Mod
 
+Add this repository URL in **Homebrew Channel → Settings → Repositories → Add repository**, then install **Glasshouse Mod**:
+
+```text
+https://raw.githubusercontent.com/Schrotty74/glasshouse-mod/launcher-weather-waldsee/repo.json
+```
+
 Follow the [fork installation guide](docs/fork-installation.md) to install the published IPK or upgrade an existing official Glasshouse installation in place. Download packages from [this fork's releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest). The built-in updater follows this fork after installation.
 
 ![Glasshouse Mod on LG G5: centered Apps and Inputs, weather beside the clock and Waldsee wallpaper](docs/screenshots/glasshouse-mod-home.png)

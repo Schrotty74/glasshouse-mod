@@ -12,6 +12,24 @@ This fork adds weather beside the clock, centered Apps and Inputs rows, and four
 
 Glasshouse supports several webOS versions. The [compatibility table](tested-tvs.md) covers the upstream project; this fork was tested on the G5 described above.
 
+## Install through the Homebrew Channel
+
+1. Open the Homebrew Channel on the TV and go to **Settings → Repositories**.
+2. Choose **Add repository** and enter this catalog URL:
+
+   ```text
+   https://raw.githubusercontent.com/Schrotty74/glasshouse-mod/launcher-weather-waldsee/repo.json
+   ```
+
+3. Return to the app list and refresh or reopen the Homebrew Channel. Find **Glasshouse Mod** and choose **Install**.
+4. Open **Glasshouse** on the TV to install the included service. For a new installation, complete its setup dialog and enable network access if the dashboard should be available from a computer.
+
+The fork uses the official app ID, so it replaces an existing Glasshouse app in place. Do not uninstall the existing app first: settings and uploaded wallpapers are retained. The installed TV tile is still named **Glasshouse**.
+
+Keep this catalog enabled to receive future stable fork releases through the Homebrew Channel's update list. The default catalog also lists official Glasshouse under the same app ID; select **Glasshouse Mod** from the added fork catalog when choosing a package. Open Glasshouse after a package update to apply its service immediately; the running service also notices an updated package automatically.
+
+The catalog is generated from each release's package and checksum manifest. Its URL stays the same, while each listed package points to a specific release. The SSH method below is an alternative.
+
 ## 1. Download the package
 
 Open [this fork's releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest). Under **Assets**, download the file ending in `.ipk`. For version 0.139.1, its name is:
@@ -93,7 +111,7 @@ Uploading selects the pictures. An existing wallpaper selection is retained duri
 
 The updater under **Server** checks stable releases from `Schrotty74/glasshouse-mod`. Choose **Check now**, then **Install** when an update is offered. Updates require a published release with a higher numeric version and its installation assets. A commit or prerelease alone does not produce an update offer.
 
-The Glasshouse entry in the Homebrew Channel's default catalog still belongs to the official project. For this fork, use its own updater or an IPK from the fork's releases.
+The Glasshouse entry in the Homebrew Channel's default catalog still belongs to the official project. For this fork, use the added fork catalog, its own updater or an IPK from the fork's releases.
 
 For troubleshooting, check the service status and local log on the TV:
 

@@ -16,6 +16,7 @@ which can hold a broker password.
 
     scripts/build-ipk.py            -> dist/<id>_<version>_all.ipk
                                        dist/<id>.manifest.json
+                                       dist/repo.json
 
 ares-package is found on PATH, or named by $ARES_PACKAGE.
 """
@@ -160,6 +161,13 @@ def main():
     with open(os.path.join(DIST, APP_ID + '.manifest.json'), 'w') as f:
         json.dump(manifest, f, indent=2)
         f.write('\n')
+
+    subprocess.run([
+        sys.executable, os.path.join(ROOT, 'scripts', 'build-hbc-catalog.py'),
+        '--manifest', os.path.join(DIST, APP_ID + '.manifest.json'),
+        '--ipk', ipk_path, '--tag', 'v' + ver,
+        '--output', os.path.join(DIST, 'repo.json'),
+    ], check=True)
 
     print('%s  %d files, %d KB' % (ipk_name, count, len(ipk) // 1024))
 

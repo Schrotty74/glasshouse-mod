@@ -40,4 +40,45 @@ jobs:
       - name: attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json --clobber
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json dist/repo.json --clobber
+
+      - name: publish the direct catalog URL
+        if: ${{ !github.event.release.prerelease }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CATALOG_BRANCH: launcher-weather-waldsee
+        run: |
+          python3 - <<'PYCODE'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          branch = os.environ['CATALOG_BRANCH']
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+          if api('repos/' + repo + '/releases/latest')['tag_name'] != tag:
+              print('A newer stable release already exists; catalog left unchanged.')
+              raise SystemExit(0)
+          endpoint = 'repos/' + repo + '/contents/repo.json'
+          current = api(endpoint + '?ref=' + branch)
+          data = Path('dist/repo.json').read_bytes()
+          if base64.b64decode(current['content']) == data:
+              print('Catalog already current.')
+              raise SystemExit(0)
+          payload = {
+              'message': 'Update Homebrew catalog for ' + tag,
+              'branch': branch, 'sha': current['sha'],
+              'content': base64.b64encode(data).decode('ascii'),
+          }
+          with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as body:
+              json.dump(payload, body)
+              body.flush()
+              subprocess.check_call(['gh', 'api', '--method', 'PUT', endpoint,
+                                     '--input', body.name, '--silent'])
+          PYCODE
