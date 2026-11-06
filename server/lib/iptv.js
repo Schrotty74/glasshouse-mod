@@ -616,6 +616,7 @@ function pump() {
 }
 
 function startNext() {
+  if (!started) return;
   if (running.background || !queue.length) return;
   var item = queue[0];
   var p = playlist(item.pl);
@@ -628,7 +629,7 @@ function startNext() {
   var job = makeJob(item.type, p);
   if (!job) { queue.shift(); return pump(); }
   memAvailable(function (avail, total) {
-    if (running.background || queue[0] !== item) return pump();
+    if (!started || running.background || queue[0] !== item) return pump();
     var waited = memoryWaitUntil - nowMs();
     var how = lastPlan = planFor(item, p, avail, total);
     if (waited > 0 || !how.start) {
@@ -639,7 +640,7 @@ function startNext() {
     job.heapMb = how.heapMb;
     if (how.fallback) console.log('iptv: ' + job.type + ' for ' + p.id + ' runs in economy: ' + Math.round(avail / MB) + ' MB available');
     hasRoom(job, function (ok) {
-      if (running.background || queue[0] !== item) return pump();
+      if (!started || running.background || queue[0] !== item) return pump();
       if (!ok) {
         waitingReason = 'disk';
         changed();
@@ -1506,6 +1507,8 @@ function start() {
 
 function stop() {
   started = false;
+  clearTimeout(pumpTimer);
+  pumpTimer = null;
   clearTimeout(catchupTimer);
   clearInterval(tickTimer);
   clearInterval(gcTimer);

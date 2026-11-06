@@ -2162,7 +2162,7 @@ function handleRequest(req, res) {
 
   // A backup of the TV's settings, saved by the browser as a file.
   if (pathname === '/api/backup' && req.method === 'GET' && backupModule) {
-    return backupModule.create(function (b) { send(res, 200, JSON.stringify(b)); });
+    return backupModule.create(function (b) { send(res, b.ok === false ? 500 : 200, JSON.stringify(b)); });
   }
 
   /*
@@ -2180,14 +2180,20 @@ function handleRequest(req, res) {
     if (borigin && String(borigin).replace(/^https?:\/\//, '') !== String(req.headers.host || '')) {
       return send(res, 403, JSON.stringify({ ok: false, error: 'cross-origin request refused' }));
     }
-    var bbody = '';
+    var bbody = [], bbytes = 0, brejected = false;
     req.on('data', function (d) {
-      bbody += d;
-      if (bbody.length > 65536) req.destroy();
+      if (brejected) return;
+      bbytes += d.length;
+      if (bbytes > backupModule.MAX_BYTES) {
+        brejected = true; bbody = [];
+        return send(res, 413, JSON.stringify({ ok: false, error: 'backup exceeds the 64 MB limit' }));
+      }
+      bbody.push(d);
     });
     req.on('end', function () {
+      if (brejected) return;
       var b = null;
-      try { b = JSON.parse(bbody); } catch (e) {
+      try { b = JSON.parse(Buffer.concat(bbody).toString('utf8')); } catch (e) {
         return send(res, 400, JSON.stringify({ ok: false, error: 'malformed JSON' }));
       }
       if (installBusyRefusal(res)) return;

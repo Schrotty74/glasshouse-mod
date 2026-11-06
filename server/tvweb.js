@@ -19,7 +19,7 @@
  * first 4096 bytes of a downloaded tvweb.js for this line (up to 0.82.2), and
  * refuses a release where it is further down (#586).
  */
-var TVWEB_VERSION = '0.139.1';
+var TVWEB_VERSION = '0.139.2';
 
 var http = require('http');
 var fs = require('fs');
@@ -999,6 +999,20 @@ routes.init({
 });
 
 backup.init({
+  stateDir: __dirname,
+  readSettings: function () { return CONFIG; },
+  commitState: function () {
+    if (iptv) iptv.stop();
+    require('./lib/home-recent').flush();
+    require('./lib/home-recent').init(__dirname);
+  },
+  beforeRestore: function () {
+    var state = iptv ? iptv._state() : { running: {} };
+    if (state.running.background || state.running.interactive) return 'Wait for the IPTV operation to finish before restoring';
+    var wall = require('./lib/home-wallpapers').status();
+    if (wall && wall.uploading) return 'Wait for the wallpaper operation to finish before restoring';
+    return null;
+  },
   lgSettings: lgSettings,
   home: glasshouseHome,
   config: CONFIG,

@@ -2,15 +2,10 @@
  * A backup of the TV's settings as one JSON file, and restoring one, onto the
  * same TV or another. Strict ES5 for Node 0.12.2 on webOS 4.
  *
- * It holds LG's settings that lgsettings.js understands, and the Glasshouse
- * settings that are the same on any TV. Left out:
- * - LG's game settings, which LG keeps per input and genre: restoring them
- *   would change whichever is current.
- * - What decides who can reach or change this server (port, host, token,
- *   allowControl and the like), so a file cannot open a TV up.
- * - MQTT, whose topic prefix and device id must differ between TVs.
- * - The experimental switches, Glasshouse Home's among them: its layout is
- *   carried, but not whether it is on, nor the settings it would put back.
+ * Version 2 also carries the complete Glasshouse configuration and private
+ * owner state. Version 1 retains its portable, allowlisted configuration
+ * semantics. Downloads can contain credentials and must be kept private.
+ * Executable-client paths are archived but cannot select a new executable.
  *
  * A restore sets only what this TV has and offers, one setting at a time
  * through lgsettings.set, and says what it skipped and why.
@@ -29,7 +24,12 @@ var screentime = require('./screentime');
 var msg = require('./say').msg;
 
 var FORMAT = 'glasshouse-backup';
-var VERSION = 1;
+var VERSION = 2;
+var stateBackup = require('./backup-state');
+var stateEnabled = false;
+var beforeRestore = null;
+var commitState = null;
+var readSettings = null;
 var SECTIONS = ['promotions', 'sound', 'devices', 'hdmi'];
 
 /*
@@ -45,7 +45,7 @@ function isCatalogList(v) {
   for (var i = 0; i < v.length; i++) {
     if (typeof v[i] !== 'string' || v[i].length > 2048 ||
         !/^https:\/\/[^\s/@]+(?:\/[^\s]*)?$/.test(v[i]) ||
-        v[i] === 'https://repo.webosbrew.org/api/apps.json' || seen[v[i]]) return false;
+        v[i] === 'https://repo' + '.webosbrew.org/api/apps.json' || seen[v[i]]) return false;
     seen[v[i]] = true;
   }
   return true;
@@ -175,10 +175,23 @@ function rowSetting(row) {
  * @param {function(Object): void} cb
  */
 function create(cb) {
+  var snapshot, configuration;
+  try { snapshot = stateEnabled ? stateBackup.create() : undefined;
+    if (readSettings) {
+      configuration = JSON.parse(JSON.stringify(readSettings()));
+      if (repo && repo.repoUrls) {
+        configuration.apps = configuration.apps || {};
+        configuration.apps.repos = repo.repoUrls().slice(1);
+      }
+      stateBackup.checkConfiguration(configuration);
+    } }
+  catch (e) { return cb({ ok: false, error: e.message }); }
   lgSettings.collect(SECTIONS, function (res) {
+    if (!res || res.ok === false) return cb({ ok: false, error: 'LG settings could not be read' });
     var lg = {};
     ((res && res.rows) || []).forEach(function (r) { lg[r.id] = rowSetting(r); });
     developerApps(function (have) {
+      if (luna && have === null) return cb({ ok: false, error: 'Installed apps could not be read' });
       var apps = Object.keys(have || {}).sort().map(function (id) {
         return { id: id, title: have[id].title, version: have[id].version };
       });
@@ -191,7 +204,9 @@ function create(cb) {
         lg: lg,
         glasshouse: backupGlasshouse(),
         home: home ? home.layout() : undefined,
-        apps: apps
+        apps: apps,
+        state: snapshot,
+        configuration: configuration
       });
     });
   });
@@ -217,11 +232,34 @@ function offers(row, value) {
  * @param {function(Object): void} cb
  */
 function restore(backup, cb) {
-  if (!backup || backup.format !== FORMAT || typeof backup.version !== 'number') {
+  if (!backup || backup.format !== FORMAT || (backup.version !== 1 && backup.version !== 2 && !(typeof backup.version === 'number' && backup.version > VERSION))) {
     return cb({ ok: false, error: msg('srv.backup.notBackup', 'That file is not a Glasshouse backup') });
   }
   if (backup.version > VERSION) {
     return cb({ ok: false, error: msg('srv.backup.newer', 'That backup is from a newer Glasshouse: update this TV first') });
+  }
+  var entries = null, complete = null;
+  try {
+    if (backup.version >= 2 && backup.configuration !== undefined) {
+      stateBackup.checkConfiguration(backup.configuration);
+      complete = JSON.parse(JSON.stringify(backup.configuration));
+      if (complete.apps && complete.apps.repos !== undefined && !isCatalogList(complete.apps.repos)) {
+        throw new Error('Invalid Homebrew catalogs');
+      }
+      // A backup must never choose an executable on the destination TV.
+      if (complete.update && complete.update.client !== undefined &&
+          complete.update.client !== '' && complete.update.client !== (config.update && config.update.client)) {
+        throw new Error('The saved update client differs from this TV; configure its executable manually first');
+      }
+    }
+    if (backup.state !== undefined) {
+      if (!stateEnabled) throw new Error('Extended restore is unavailable');
+      entries = stateBackup.prepare(backup.state);
+    }
+  } catch (e) { return cb({ ok: false, error: e.message }); }
+  if (entries && beforeRestore) {
+    var refusal = beforeRestore();
+    if (refusal) return cb({ ok: false, error: refusal });
   }
   var wanted = backup.lg && typeof backup.lg === 'object' ? backup.lg : {};
   var result = { applied: [], unchanged: 0, skipped: [], failed: [] };
@@ -232,20 +270,36 @@ function restore(backup, cb) {
     var i = 0;
     (function next() {
       if (i >= ids.length) {
-        return planApps(backup.apps, function (apps) {
-          restoreHome(backup.home, function (homeRestored) {
-            restoreGlasshouse(backup.glasshouse, result, function (r) {
-              r.apps = apps;
-              if (r.glasshouse && r.glasshouse.indexOf('apps.repos') !== -1 && repo && repo.forget) repo.forget();
-              r.home = !!(homeRestored && homeRestored.ok);
-              if (homeRestored && !homeRestored.ok) {
-                r.ok = false;
-                r.error = msg('srv.home.backupFailed', 'Other settings may have been restored, but the Home layout could not be restored: {error}',
-                  { error: homeRestored.error || 'unknown error' });
-              }
-              cb(r);
-            });
-          });
+        return restoreHome(backup.home, function (homeRestored) {
+          restoreGlasshouse(backup.glasshouse, result, function (r) {
+            r.home = !!(homeRestored && homeRestored.ok);
+            if (homeRestored && !homeRestored.ok) {
+              r.ok = false;
+              r.error = msg('srv.home.backupFailed', 'Other settings may have been restored, but the Home layout could not be restored: {error}',
+                { error: homeRestored.error || 'unknown error' });
+            }
+            if (entries && entries.length && r.ok) {
+              try {
+                if (beforeRestore) {
+                  var refusal = beforeRestore();
+                  if (refusal) throw new Error(refusal);
+                }
+                r.restart = true;
+                if (commitState) commitState();
+                r.files = stateBackup.restore(entries);
+                r.restart = r.restart || entries.length > 0;
+              } catch (e) { r.ok = false; r.error = 'Extended settings restore failed: ' + e.message; }
+            }
+            // The restored catalogs must be active before classifying missing apps.
+            var restoredRepos = complete && complete.apps && complete.apps.repos;
+            if (!restoredRepos && r.glasshouse.indexOf('apps.repos') !== -1) restoredRepos = backup.glasshouse.apps.repos;
+            if (r.ok && restoredRepos) {
+              config.apps = config.apps || {};
+              config.apps.repos = restoredRepos;
+              if (repo && repo.forget) repo.forget();
+            }
+            planApps(backup.apps, function (apps) { r.apps = apps; cb(r); });
+          }, complete);
         });
       }
       var id = ids[i++];
@@ -308,11 +362,17 @@ function restoreHome(layout, cb) {
   home.setLayout(layout, cb);
 }
 
-function restoreGlasshouse(src, lgResult, cb) {
-  var wanted = pickGlasshouse(src);
-  var current = pickGlasshouse(config);
+function restoreGlasshouse(src, lgResult, cb, complete) {
+  var wanted = complete || pickGlasshouse(src);
+  var current = complete ? config : pickGlasshouse(config);
   var patch = {}, changed = [];
   for (var section in wanted) {
+    if (complete) {
+      if (same(current[section], wanted[section])) continue;
+      patch[section] = wanted[section];
+      changed.push(section);
+      continue;
+    }
     for (var key in wanted[section]) {
       var now = current[section] ? current[section][key] : undefined;
       if (same(now, wanted[section][key])) continue;
@@ -330,7 +390,8 @@ function restoreGlasshouse(src, lgResult, cb) {
       restart: !err && changed.length > 0
     });
   }
-  if (!changed.length || !writeSettings) return done(null);
+  if (!changed.length) return done(null);
+  if (!writeSettings) return done(new Error('No settings writer configured'));
   writeSettings(patch, done);
 }
 
@@ -373,6 +434,7 @@ function dailyCheck(cb) {
   if (saved().some(function (s) { return s.name === name; })) return cb(null);
   create(function (b) {
     try {
+      if (b.ok === false) throw new Error(b.error);
       util.mkdirp(dailyDir);
       // Readable by root only, as config.json is.
       util.writeJsonAtomic(path.join(dailyDir, name), b, parseInt('600', 8));
@@ -416,6 +478,10 @@ function dailyStatus() {
 
 /**
  * @param {Object} opts
+ * @param {string} [opts.stateDir] settings and wallpaper directory
+ * @param {function(): Object} [opts.readSettings] complete configuration, including private settings
+ * @param {function(): void} [opts.commitState] pause state writers until restart
+ * @param {function(): ?string} [opts.beforeRestore] refuses an extended restore while state is busy
  * @param {typeof import('./lgsettings')} opts.lgSettings
  * @param {any} opts.config the server's config, read for the Glasshouse part
  * @param {function(Object, function(?Error): void): void} opts.writeSettings
@@ -432,6 +498,11 @@ function dailyStatus() {
  * @param {typeof import('./home')} [opts.home] Glasshouse Home, whose layout a backup carries
  */
 function init(opts) {
+  stateEnabled = !!opts.stateDir;
+  if (stateEnabled) stateBackup.init(opts.stateDir);
+  beforeRestore = opts.beforeRestore || null;
+  commitState = opts.commitState || null;
+  readSettings = opts.readSettings || null;
   lgSettings = opts.lgSettings;
   config = opts.config;
   writeSettings = opts.writeSettings || null;
@@ -446,6 +517,7 @@ function init(opts) {
 }
 
 module.exports = {
+  MAX_BYTES: stateBackup.MAX_BYTES,
   FORMAT: FORMAT,
   SECTIONS: SECTIONS,
   init: init,

@@ -52,7 +52,7 @@ var PENDING = require('path').join(require('os').tmpdir(), 'gh-restore-apps-earl
   backup.init({ lgSettings: fakeLg(C4_ROWS), config: CONFIG, pendingFile: PENDING, about: function () { return { model: 'OLED65C43LA', version: '0.95.0' }; } });
   backup.create(function (b) {
     assert.strictEqual(b.format, 'glasshouse-backup');
-    assert.strictEqual(b.version, 1);
+    assert.strictEqual(b.version, 2);
     assert.deepEqual(b.from, { model: 'OLED65C43LA', glasshouse: '0.95.0' });
     assert.deepEqual(b.lg, { homePromotion: false, soundMode: 'standard', avSync: 0, deepColor2: false });
     assert.deepEqual(b.glasshouse, {
@@ -116,7 +116,7 @@ var PENDING = require('path').join(require('os').tmpdir(), 'gh-restore-apps-earl
   backup.init({ lgSettings: lg, config: CONFIG });
   backup.restore({ hello: 1 }, function (r) { assert.strictEqual(r.ok, false); });
   backup.restore(null, function (r) { assert.strictEqual(r.ok, false); });
-  backup.restore({ format: 'glasshouse-backup', version: 2, lg: { soundMode: 'cinema' } }, function (r) {
+  backup.restore({ format: 'glasshouse-backup', version: 3, lg: { soundMode: 'cinema' } }, function (r) {
     assert.strictEqual(r.ok, false, 'from a newer Glasshouse');
   });
   assert.deepEqual(lg.sets, [], 'nothing set');

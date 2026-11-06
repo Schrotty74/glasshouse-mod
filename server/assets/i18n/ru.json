@@ -868,7 +868,6 @@
  "server.backup.confirm": {"text": "Восстановить настройки, сохраненные с {tv} {date}? Это изменит настройки LG на этом телевизоре.", "from": "Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV."},
  "server.backup.daily": {"text": "Ежедневная копия", "from": "Daily backup"},
  "server.backup.daily.desc": {"text": "Раз в день сохраняет такую же копию на телевизоре и хранит последние 7. Каждую можно скачать или восстановить здесь.", "from": "Saves the same backup on the TV once a day, and keeps the last 7. Each can be downloaded or restored here."},
- "server.backup.desc": {"text": "Сохраняет в файл настройки LG для звука, устройств, HDMI и рекламы, а также собственные настройки Glasshouse. При восстановлении, на этом или другом телевизоре, применяются те из них, что у телевизора есть. Доступ к сети, MQTT и настройки игр не входят.", "from": "Saves LG's sound, device, HDMI and ad settings, and Glasshouse's own, to a file. Restoring it, on this TV or another, sets those the TV has. Network access, MQTT and game settings are not included."},
  "server.backup.download": {"text": "Скачать", "from": "Download"},
  "server.backup.failedSome": {"text": "Не удалось применить: {count}.", "from": "{count} could not be set."},
  "server.backup.kb": {"text": "{kb} КБ", "from": "{kb} KB"},

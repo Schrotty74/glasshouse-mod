@@ -868,7 +868,6 @@
  "server.backup.confirm": {"text": "Visszaállítja a mentett beállításokat?\n\nForrás-TV: {tv}\nMentés dátuma: {date}\n\nEz módosítja az LG-beállításait ezen a TV-n.", "from": "Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV."},
  "server.backup.daily": {"text": "Napi biztonsági mentés", "from": "Daily backup"},
  "server.backup.daily.desc": {"text": "Naponta egyszer elmenti ugyanezeket a beállításokat a TV-re, és megőrzi a legutóbbi 7 biztonsági mentést. Mindegyik letölthető vagy visszaállítható innen.", "from": "Saves the same backup on the TV once a day, and keeps the last 7. Each can be downloaded or restored here."},
- "server.backup.desc": {"text": "Fájlba menti az LG hang-, eszköz-, HDMI- és reklámbeállításait, valamint a Glasshouse saját beállításait. Ezen vagy egy másik TV-n visszaállítva csak az adott TV-n elérhető beállításokat alkalmazza. A hálózati hozzáférés, az MQTT és a játékbeállítások nem szerepelnek a mentésben.", "from": "Saves LG's sound, device, HDMI and ad settings, and Glasshouse's own, to a file. Restoring it, on this TV or another, sets those the TV has. Network access, MQTT and game settings are not included."},
  "server.backup.download": {"text": "Letöltés", "from": "Download"},
  "server.backup.failedSome": {"text": "{count} beállítást nem sikerült megadni.", "from": "{count} could not be set."},
  "server.backup.kb": {"text": "{kb} KB", "from": "{kb} KB"},

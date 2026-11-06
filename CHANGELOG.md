@@ -1,5 +1,11 @@
 # Glasshouse Mod changelog
 
+## 0.139.2 — 2026-11-06
+
+- Settings backups include weather, wallpaper images and selection, IPTV subscriptions and channel choices, Homebrew catalogs, and the complete Glasshouse configuration, including private credentials and custom configuration keys.
+- Restores validate image files and checksums before applying settings, stage state files with rollback on write failure, preserve version 1 backups, and use restored catalogs when listing missing apps.
+- IPTV caches are rebuilt from the restored subscriptions. Executable-client paths must already match the destination TV. Installed app packages, LG per-input game settings and machine-specific Home takeover snapshots are not copied. No real-TV restore or update installation was tested for this release.
+
 ## 0.139.1 — 2026-11-06
 
 This release integrates the official Glasshouse 0.139.0 release and subsequent changes through upstream commit `b30e84a`.

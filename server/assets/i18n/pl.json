@@ -971,7 +971,6 @@
  "server.backup.confirm": {"text": "Przywrócić ustawienia zapisane z {tv} dnia {date}? To zmienia ustawienia LG na tym telewizorze.", "from": "Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV."},
  "server.backup.daily": {"text": "Codzienna kopia zapasowa", "from": "Daily backup"},
  "server.backup.daily.desc": {"text": "Zapisuje tę samą kopię zapasową na telewizorze raz dziennie i przechowuje ostatnie 7. Każdą można tu pobrać lub przywrócić.", "from": "Saves the same backup on the TV once a day, and keeps the last 7. Each can be downloaded or restored here."},
- "server.backup.desc": {"text": "Zapisuje do pliku ustawienia dźwięku, urządzeń, HDMI i reklam LG oraz własne ustawienia Glasshouse. Przywrócenie go, na tym lub innym telewizorze, ustawia te, które telewizor posiada. Dostęp sieciowy, MQTT i ustawienia gier nie są uwzględnione.", "from": "Saves LG's sound, device, HDMI and ad settings, and Glasshouse's own, to a file. Restoring it, on this TV or another, sets those the TV has. Network access, MQTT and game settings are not included."},
  "server.backup.download": {"text": "Pobierz", "from": "Download"},
  "server.backup.failedSome": {"text": "Nie udało się ustawić: {count}.", "from": "{count} could not be set."},
  "server.backup.kb": {"text": "{kb} KB", "from": "{kb} KB"},

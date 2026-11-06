@@ -26,7 +26,7 @@ function setup(config, extraDocs) {
   docs['https://repo.webosbrew.org/api/apps/2.json'] = PAGE2;
   for (var k in (extraDocs || {})) docs[k] = extraDocs[k];
   repo.init({
-    config: config || {},
+    config: config || { apps: { repos: [] } },
     luna: function (uri, payload, cb) {
       lunaCalls++;
       assert.strictEqual(uri, 'com.webos.applicationManager/listApps');
@@ -250,7 +250,7 @@ function pages() {
   docs = {};
   docs[BASE] = many;
   var u = BASE;
-  repo.init({ config: {}, luna: function (x, p, cb) { cb({}); },
+  repo.init({ config: { apps: { repos: [] } }, luna: function (x, p, cb) { cb({}); },
               fetch: { getJson: function (url, cb) { fetched.push(url); cb(null, many); } } });
   repo.getCatalog(false, function (r) {
     assert.strictEqual(r.ok, true);
@@ -268,7 +268,7 @@ function failures() {
   function start(config) {
     calls = 0;
     repo.init({
-      config: config || {}, now: function () { return clock; }, luna: function (x, p, cb) { cb({}); },
+      config: config || { apps: { repos: [] } }, now: function () { return clock; }, luna: function (x, p, cb) { cb({}); },
       fetch: { getJson: function (u, cb) {
         calls++;
         if (u === EXTRA && partial) return cb(new Error('extra down'));
@@ -388,7 +388,7 @@ function added() {
 
   function check() {
     var seen = [];
-    repo.init({ config: {}, luna: function (x, p, cb) { cb({}); }, fetch: {
+    repo.init({ config: { apps: { repos: [] } }, luna: function (x, p, cb) { cb({}); }, fetch: {
       validateUrl: function () { return null; },
       getJson: function (u, cb) { seen.push(u); cb(null, u === FORK ? forkDoc : { hello: 1 }); } } });
     repo.checkCatalog('https://github.com/someone/youtube-webos', function (err, u) {
@@ -408,3 +408,11 @@ function added() {
     });
   }
 }
+
+// Fork defaults apply only until an explicit catalog selection is saved.
+repo.init({ config: {} });
+var defaults = repo.repoUrls();
+assert.equal(defaults[0], BASE);
+assert.ok(defaults.indexOf('https://raw.githubusercontent.com/Schrotty74/LG-G5-Apps/HEAD/repo.json') > 0);
+repo.init({ config: { apps: { repos: [] } } });
+assert.deepEqual(repo.repoUrls(), [BASE]);

@@ -213,3 +213,5 @@ dashboard and Home Assistant bridge carry on without it.
 The weather location is saved as `local-weather-place.json` next to the Glasshouse configuration. The file contains the selected name, display label and coordinates. The dashboard can clear the selection with **Hide weather**. The current conditions are cached in memory. The TV contacts Open-Meteo when the launcher needs weather for the selected location and its cached response has expired.
 
 The fork build checks `Schrotty74/glasshouse-mod` for updates and downloads its release artifacts through the existing updater. Future installations stay on this fork when updated through the dashboard.
+
+Extended backup restores write only the fixed list of owner setting files and wallpaper slots under the Glasshouse state directory, with SHA-256 validation, owner-only staged files and rollback on write failure. Missing files in older backups are preserved. An active IPTV worker or wallpaper upload refuses the restore. The server restarts after restored state files are written.

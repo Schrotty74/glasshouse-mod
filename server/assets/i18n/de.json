@@ -838,5 +838,8 @@
   "home.weather.searchError": {
     "text": "Die Ortssuche ist gerade nicht erreichbar.",
     "from": "Location search is unavailable."
-  }
+  },
+  "server.backup.private": {"text": "Dieses Backup enthält private Einstellungen und Zugangsdaten. Bewahre es vertraulich auf.", "from": "This backup contains private settings and credentials. Keep it private."},
+  "server.backup.completeConfirm": {"text": "Dies stellt auch die Glasshouse-Netzwerkeinstellungen, das Zugriffstoken und Zugangsdaten wieder her. Adresse oder Anmeldung können sich ändern.", "from": "This also restores Glasshouse network settings, access token and credentials. The dashboard address or login may change."},
+  "server.backup.descV2": {"text": "Sichert LG-Einstellungen, Wetter, Wallpaper-Bilder, IPTV, Kataloge und die Glasshouse-Konfiguration einschließlich Zugangsdaten. Bewahre die Datei vertraulich auf. Das Wiederherstellen kann Netzwerkzugriff und Anmeldung ändern. LG-Spieleinstellungen pro Eingang und installierte App-Pakete sind nicht enthalten.", "from": "Saves LG settings, weather, wallpaper images, IPTV, catalogs and Glasshouse configuration, including credentials. Keep the file private. Restoring can change network access and login. LG per-input game settings and installed app packages are not included."}
 }

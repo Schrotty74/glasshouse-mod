@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/logo/glasshouse-512.png" width="128" alt="Glasshouse logo: a G whose top is a roof"></p>
 
-> Glasshouse Mod 0.139.1 includes the official 0.139.0 changes, centered Home rows, a smaller clock, current weather with location search, and four Waldsee wallpapers. See the [changelog](CHANGELOG.md) and [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases).
+> Glasshouse Mod 0.139.2 includes complete private settings backups and the official 0.139.0 changes, centered Home rows, a smaller clock, current weather with location search, and four Waldsee wallpapers. See the [changelog](CHANGELOG.md) and [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases).
 
 
 # Glasshouse

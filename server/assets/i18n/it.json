@@ -977,7 +977,6 @@
  "server.backup.confirm": {"text": "Ripristinare le impostazioni salvate da {tv} il {date}? Le impostazioni LG di questa TV verranno modificate.", "from": "Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV."},
  "server.backup.daily": {"text": "Backup giornaliero", "from": "Daily backup"},
  "server.backup.daily.desc": {"text": "Salva lo stesso backup sulla TV una volta al giorno e conserva gli ultimi 7. Ognuno si può scaricare o ripristinare da qui.", "from": "Saves the same backup on the TV once a day, and keeps the last 7. Each can be downloaded or restored here."},
- "server.backup.desc": {"text": "Salva in un file le impostazioni di audio, dispositivi, HDMI e pubblicità di LG, e quelle di Glasshouse. Ripristinandolo, su questa TV o su un'altra, si impostano quelle che la TV possiede. Accesso di rete, MQTT e impostazioni di gioco non sono inclusi.", "from": "Saves LG's sound, device, HDMI and ad settings, and Glasshouse's own, to a file. Restoring it, on this TV or another, sets those the TV has. Network access, MQTT and game settings are not included."},
  "server.backup.download": {"text": "Scarica", "from": "Download"},
  "server.backup.failedSome": {"text": "{count} non sono state impostate.", "from": "{count} could not be set."},
  "server.backup.kb": {"text": "{kb} KB", "from": "{kb} KB"},
