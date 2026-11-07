@@ -1,5 +1,10 @@
 # Glasshouse Mod changelog
 
+## 0.139.4 — 2026-11-07
+
+- Import Hearth themes in the Home dashboard and select stored ZIPs with the TV remote. Themes can supply colours, fonts, wallpapers, icon styles and app presentation.
+- Backups include the active theme and its assets. Removing a theme reveals the saved Home appearance. Theme locations can be chosen in the existing weather controls.
+
 ## 0.139.3 — 2026-11-06
 
 - Backup import rejects inherited object prototypes on Node 0.10, whose JSON parser handles `__proto__` differently. The large-backup test uses the existing buffer helper for legacy Node compatibility.

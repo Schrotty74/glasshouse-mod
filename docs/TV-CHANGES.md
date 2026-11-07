@@ -215,3 +215,5 @@ The weather location is saved as `local-weather-place.json` next to the Glasshou
 The fork build checks `Schrotty74/glasshouse-mod` for updates and downloads its release artifacts through the existing updater. Future installations stay on this fork when updated through the dashboard.
 
 Extended backup restores write only the fixed list of owner setting files and wallpaper slots under the Glasshouse state directory, with SHA-256 validation, owner-only staged files and rollback on write failure. Missing files in older backups are preserved. An active IPTV worker or wallpaper upload refuses the restore. The server restarts after restored state files are written.
+
+Glasshouse Home stores the active Hearth theme and its referenced assets in `/var/lib/tvweb/home-theme.json`. The regular Home layout and wallpaper selection remain the base appearance under the overlay. ZIPs already stored under `/media/developer/themes` can be selected from the dashboard or TV app.

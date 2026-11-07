@@ -19,7 +19,7 @@ put('disabled_services.json', '[\"test-service\"]');
 put('hidden_apps', 'com.example.test\n');
 put('tile_hiding_enabled', '0\n');
 var snapshot = state.create();
-assert.strictEqual(snapshot.files.length, 8);
+assert.strictEqual(snapshot.files.length, 9);
 put('local-weather-place.json', 'null');
 state.restore(state.prepare(JSON.parse(JSON.stringify(snapshot))));
 assert.strictEqual(fs.readFileSync(path.join(dir, 'local-weather-place.json'), 'utf8'), place);

@@ -5,6 +5,7 @@ var path = require('path');
 var crypto = require('crypto');
 var util = require('./util');
 var wallpapers = require('./home-wallpapers');
+var homeTheme = require('./home-theme');
 var lineup = require('./iptv-lineup');
 var ROOT = '/var/lib/tvweb';
 var MAX_BYTES = 64 * 1024 * 1024;
@@ -67,7 +68,9 @@ function checkConfiguration(value) {
     }
   });
 }
+function limitFor(name) { return name === homeTheme.STATE_FILE ? homeTheme.MAX_SAVED : MAX_FILE; }
 function validate(name, buf) {
+  if (name === homeTheme.STATE_FILE) { homeTheme.validateSaved(buf); return; }
   if (name === 'hidden_apps') {
     if (buf.toString('utf8').split('\n').some(function (id) { return id && !/^[A-Za-z0-9._-]{1,128}$/.test(id); })) throw new Error('Invalid hidden app id');
     return;
@@ -114,29 +117,40 @@ function create() {
     try { file = safePath(name); if (!fs.existsSync(file)) return; }
     catch (e) { if (e.code === 'ENOENT') return; throw e; }
     var st = fs.statSync(file);
-    if (!st.isFile() || st.size > MAX_FILE) throw new Error('Settings file exceeds backup limit: ' + name);
+    if (!st.isFile() || st.size > limitFor(name)) throw new Error('Settings file exceeds backup limit: ' + name);
     var buf = fs.readFileSync(file);
     validate(name, buf);
     total += buf.length;
     if (total > 40 * 1024 * 1024) throw new Error('Settings and images exceed the 40 MB backup limit');
     files.push({ name: name, data: buf.toString('base64'), sha256: digest(buf) });
   });
+  // The explicit null distinguishes an inactive theme from older backups.
+  var themePath = safePath(homeTheme.STATE_FILE);
+  var theme = util.toBuffer('null', 'utf8');
+  if (fs.existsSync(themePath)) {
+    var stat = fs.statSync(themePath);
+    if (!stat.isFile() || stat.size > homeTheme.MAX_SAVED) throw new Error('Invalid Hearth theme state');
+    theme = fs.readFileSync(themePath);
+    homeTheme.validateSaved(theme);
+  }
+  if (total + theme.length > 40 * 1024 * 1024) throw new Error('Settings and images exceed the 40 MB backup limit');
+  files.push({ name: homeTheme.STATE_FILE, data: theme.toString('base64'), sha256: digest(theme) });
   return { version: 1, files: files };
 }
 function prepare(snapshot) {
-  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.files) || snapshot.files.length > FILES.length) {
+  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.files) || snapshot.files.length > FILES.length + 1) {
     throw new Error('Invalid settings snapshot');
   }
   var seen = {}, total = 0;
   var entries = snapshot.files.map(function (entry) {
-    if (!entry || FILES.indexOf(entry.name) < 0 || seen[entry.name] || typeof entry.data !== 'string' ||
-        entry.data.length > Math.ceil(MAX_FILE / 3) * 4 || (!/^[A-Za-z0-9+/]*={0,2}$/.test(entry.data) || entry.data.length % 4 !== 0)) {
+    if (!entry || (FILES.indexOf(entry.name) < 0 && entry.name !== homeTheme.STATE_FILE) || seen[entry.name] || typeof entry.data !== 'string' ||
+        entry.data.length > Math.ceil(limitFor(entry.name) / 3) * 4 || (!/^[A-Za-z0-9+/]*={0,2}$/.test(entry.data) || entry.data.length % 4 !== 0)) {
       throw new Error('Invalid backup file');
     }
     seen[entry.name] = true;
     var buf = new Buffer(entry.data, 'base64');
     total += buf.length;
-    if (buf.length > MAX_FILE || total > 40 * 1024 * 1024 || digest(buf) !== entry.sha256) throw new Error('Backup checksum or size mismatch');
+    if (buf.length > limitFor(entry.name) || total > 40 * 1024 * 1024 || digest(buf) !== entry.sha256) throw new Error('Backup checksum or size mismatch');
     validate(entry.name, buf);
     if (entry.name === 'iptv/config.json') {
       var playlists = JSON.parse(buf.toString('utf8'));
@@ -180,6 +194,7 @@ function restore(entries) {
     if (rollbackErrors.length) throw new Error('Restore failed and rollback was incomplete: ' + rollbackErrors.join('; '));
     throw e;
   }
+  if (entries.some(function (entry) { return entry.name === homeTheme.STATE_FILE; })) homeTheme.init();
   return entries.map(function (entry) { return entry.name; });
 }
 module.exports = { init: init, create: create, prepare: prepare, restore: restore, checkConfiguration: checkConfiguration, MAX_BYTES: MAX_BYTES };

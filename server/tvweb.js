@@ -19,7 +19,7 @@
  * first 4096 bytes of a downloaded tvweb.js for this line (up to 0.82.2), and
  * refuses a release where it is further down (#586).
  */
-var TVWEB_VERSION = '0.139.3';
+var TVWEB_VERSION = '0.139.4';
 
 var http = require('http');
 var fs = require('fs');
@@ -1007,6 +1007,7 @@ backup.init({
     require('./lib/home-recent').init(__dirname);
   },
   beforeRestore: function () {
+    if (glasshouseHome && glasshouseHome.themeLoading()) return 'Wait for the Hearth theme to finish loading before restoring';
     var state = iptv ? iptv._state() : { running: {} };
     if (state.running.background || state.running.interactive) return 'Wait for the IPTV operation to finish before restoring';
     var wall = require('./lib/home-wallpapers').status();

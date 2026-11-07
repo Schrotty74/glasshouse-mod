@@ -31,6 +31,7 @@ var msg = require('./say').msg;
 var names = require('./names');
 var writeJsonAtomic = require('./util').writeJsonAtomic;
 var wallpapers = require('./home-wallpapers');
+var homeTheme = require('./home-theme');
 var takeover = require('./home-takeover');
 var recent = require('./home-recent');
 var recentApps = require('./home-recent-apps');
@@ -501,7 +502,8 @@ function layoutVersion() {
   readConfig();
   return String(configMtime) + (search.blocked() ? '-search-blocked' : '') +
     (iptvModule ? '-tv' + iptvModule.revision() : '') +
-    (listsRevision ? '-lists' + listsRevision : '');
+    (listsRevision ? '-lists' + listsRevision : '') +
+    (homeTheme.revision() ? '-theme' + homeTheme.revision() : '');
 }
 
 function saveConfig() {
@@ -857,8 +859,10 @@ function build(c, apps, devs, chans, recs, tv) {
   var picked = [];
   (chans || []).forEach(function (ch) { if (c.channels.indexOf(ch.id) !== -1) picked.push(ch); });
   picked.sort(function (a, b) { return c.channels.indexOf(a.id) - c.channels.indexOf(b.id); });
+  var theme = homeTheme.current();
+  var themeOrder = theme && theme.theme.order || [];
   var order = {
-    app: ordered(c.order.app, appIds),
+    app: ordered(themeOrder.concat(c.order.app.filter(function (id) { return themeOrder.indexOf(id) === -1; })), appIds),
     dev: tunerFirst(c.order.dev, ordered(c.order.dev, devIds)),
     ch: picked.map(function (p) { return p.id; }),
     rec: [],
@@ -876,11 +880,11 @@ function build(c, apps, devs, chans, recs, tv) {
   });
   order.rec = cards.map(function (r) { return r.id; });
   return {
-    apps: appList.map(function (a) {
+    apps: homeTheme.dressApps(appList.map(function (a) {
       var app = { id: a.id, title: a.title, icon: a.icon ? '/api/home/icon?id=' + encodeURIComponent(a.id) : null };
       if (a.overlay) app.overlay = true;
       return app;
-    }),
+    })),
     devices: devs || [],
     channels: picked,
     recommended: cards,
@@ -2315,6 +2319,7 @@ function status(cb) {
         history: !!(historyModule && historyModule.enabled && historyModule.enabled()),
         wallpapers: wallpapers.status(),
         colourPresets: COLOUR_PRESETS,
+        theme: homeTheme.summary(),
         layout: layoutOf(c)
       };
       if (c.lgAutoLaunch === 'on' || hal === 'on' || hal === 'off') {
@@ -2325,6 +2330,28 @@ function status(cb) {
   });
 }
 
+var loadingTheme = false;
+function loadTheme(buf, source, cb) {
+  var sup = supported();
+  if (!sup.ok) return cb({ ok: false, error: sup.reason });
+  if (loadingTheme) return cb({ ok: false, error: 'A Hearth theme is already loading.' });
+  loadingTheme = true;
+  homeTheme.parse(buf, function (parsed) {
+    loadingTheme = false;
+    if (parsed.errors) return cb({ ok: false, error: msg('srv.home.themeRefused', 'The theme was not loaded.'), errors: parsed.errors });
+    try { homeTheme.store(parsed, source); }
+    catch (e) { return cb({ ok: false, error: e.message }); }
+    cb({ ok: true, theme: homeTheme.summary() });
+  });
+}
+
+function removeTheme(cb) {
+  if (loadingTheme) return cb({ ok: false, error: 'A Hearth theme is already loading.' });
+  try { homeTheme.clear(); }
+  catch (e) { return cb({ ok: false, error: e.message }); }
+  cb({ ok: true, theme: null });
+}
+
 /*
  * What the view's catalogue carries beside the rows, without status()'s two
  * luna calls: just after a start they wait their turn behind every other
@@ -2332,7 +2359,7 @@ function status(cb) {
  */
 function viewStatus() {
   var c = readConfig();
-  return { layout: layoutOf(c), enabled: c.enabled, supported: supported(), wallpapers: wallpapers.status() };
+  return { layout: layoutOf(c), enabled: c.enabled, supported: supported(), wallpapers: wallpapers.status(), theme: homeTheme.view() };
 }
 
 // LG's Home reads its layout from /mnt/lg/cmn_data/manifest on webOS 9 only;
@@ -2347,6 +2374,7 @@ function init(opts) {
   iptvModule = opts.iptv || null;
   if (opts.stateDir) stateDir = opts.stateDir;
   wallpapers.init(stateDir);
+  homeTheme.init({ stateDir: stateDir, themesDir: opts.themesDir });
   recent.init(stateDir, opts.now);
   recentApps.init({ luna: lunaFn, excluded: function () { return readConfig().excludedRecents; } });
   recommended.init({ luna: lunaFn });
@@ -2558,6 +2586,10 @@ module.exports = {
   status: status,
   catalogue: catalogue,
   viewStatus: viewStatus,
+  loadTheme: loadTheme,
+  removeTheme: removeTheme,
+  theme: homeTheme,
+  themeLoading: function () { return loadingTheme; },
   channelList: channelList,
   guide: guide,
   now: now,

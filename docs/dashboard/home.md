@@ -290,6 +290,14 @@ The links and logins are kept on the TV only. They are not shown on the
 dashboard again, and never sent to Home Assistant, the logs or a phone or
 computer; see [Security](../SECURITY.md#internet-tv).
 
+## Hearth themes
+
+Open **Home → Hearth theme** in the web dashboard to choose or upload a Hearth ZIP. The TV app's **Home → Hearth theme** row cycles through ZIPs in `/media/developer/themes` with OK, then returns to **None**. The archive uses Hearth's format 1 with `manifest.json` at the root.
+
+A theme can supply colours, fonts, a wallpaper or slideshow, icon styles, and app names, icons and order. Theme locations appear as optional choices in the existing weather section. Removing the theme reveals the saved Home colours, app order and wallpaper again. The tile light or dark style and Hearth's built-in fonts are listed as unused.
+
+The active theme and its assets are included in settings backups. The saved theme record is limited to 20 MB within the backup's 40 MB raw state limit. Theme handling adapts the MIT-licensed [quzopl Glasshouse implementation](https://github.com/quzopl/glasshouse/commit/d3f55945509ff66235aab20de65f39b7876cff0f).
+
 ## Wallpapers
 
 By default, Glasshouse Home uses a pure `#000` OLED black background (and leaves the TV's [screen saver](screen-savers.md) untouched). It can instead show a picture for each of four times of day: **Morning** (06:00 to 11:00), **Afternoon** (11:00 to 17:00), **Evening** (17:00 to 21:00) and **Night** (21:00 to 06:00).

@@ -1080,6 +1080,10 @@
       <button type="submit" data-t="home.weather.search">Search</button>
     </form>
     <p id="local-weather-status" role="status"></p>
+    <div id="local-weather-theme-cities" hidden>
+      <p data-t="home.theme.weatherCities">Locations from the theme</p>
+      <div class="btns" id="local-weather-theme-cities-buttons"></div>
+    </div>
     <div class="btns" id="local-weather-results"></div>
     <button type="button" id="local-weather-clear" hidden data-t="home.weather.clear">Hide weather</button>
     <p><a href="https://open-meteo.com/" target="_blank" rel="noopener" data-t="home.weather.source">Weather and place search by Open-Meteo</a> · <a href="https://www.zippopotam.us/" target="_blank" rel="noopener" data-t="home.weather.postalSource">Postal codes by Zippopotam.us</a></p>
@@ -1319,6 +1323,17 @@
     <label><input type="color" id="home-col-accent" onchange="homeCustomColours()"> <span data-t="home.colours.accent">Accent</span></label>
     <button type="button" id="home-col-reset" onclick="homeSaveLayout({ colours: homeDefaultLook() })" data-t="home.colours.reset">Use the default colours</button>
   </div>
+
+  <div class="pv-sec adv-sec" data-t="home.theme.title">Hearth theme</div>
+  <div class="sub" data-t="home.theme.desc">A Hearth ZIP can set colours, fonts, wallpaper, app order, names and icons. Choose a ZIP from /media/developer/themes or upload one here.</div>
+  <div class="sub" id="home-theme-now" role="status"></div>
+  <div class="btns" id="home-theme-zips"></div>
+  <input type="file" id="home-theme-file" accept=".zip,application/zip" hidden onchange="homeThemePicked(this)">
+  <div class="btns">
+    <button type="button" id="home-theme-upload" onclick="q('home-theme-file').click()" data-t="home.theme.upload">Load a theme zip&hellip;</button>
+    <button type="button" id="home-theme-remove" onclick="homeThemeRemove()" data-t="home.theme.remove">Remove the theme</button>
+  </div>
+  <div class="sub" id="home-theme-note" role="status"></div>
 
   <div class="pv-sec adv-sec" data-t="home.wall.title">Wallpaper</div>
   <div class="sub" data-t="home.wall.introSets">A picture behind Glasshouse Home for each part of the day: none, one of the picture sets, or your own.</div>
