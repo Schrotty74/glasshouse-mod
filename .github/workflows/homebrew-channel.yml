@@ -10,9 +10,11 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   package:
+    if: ${{ !contains(github.event.release.tag_name, '-mod.') }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -39,4 +41,64 @@ jobs:
       - name: attach to the release
         env:
           GH_TOKEN: ${{ github.token }}
-        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json --clobber
+        run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json dist/repo.json --clobber
+
+      - name: update the release pull request title
+        if: ${{ !github.event.release.prerelease }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CATALOG_BRANCH: launcher-weather-waldsee
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          [ "$latest" = "$RELEASE_TAG" ] || exit 0
+          endpoint="repos/$GITHUB_REPOSITORY/pulls/1"
+          pr_branch=$(gh api "$endpoint" --jq 'select(.state == "open") | .head.ref')
+          [ "$pr_branch" = "$CATALOG_BRANCH" ] || exit 0
+          title="Glasshouse Mod ${RELEASE_TAG#v}: Hearth themes, backups, weather and Waldsee wallpapers"
+          current=$(gh api "$endpoint" --jq .title)
+          [ "$current" != "$title" ] || exit 0
+          gh api --method PATCH "$endpoint" -f "title=$title" --silent
+
+      - name: publish the direct catalog URL
+        if: ${{ !github.event.release.prerelease }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CATALOG_BRANCH: launcher-weather-waldsee
+        run: |
+          python3 - <<'PYCODE'
+          import base64
+          import json
+          import os
+          from pathlib import Path
+          import subprocess
+          import tempfile
+
+          repo = os.environ['GITHUB_REPOSITORY']
+          tag = os.environ['RELEASE_TAG']
+          branch = os.environ['CATALOG_BRANCH']
+          def api(path):
+              return json.loads(subprocess.check_output(['gh', 'api', path], text=True))
+          if api('repos/' + repo + '/releases/latest')['tag_name'] != tag:
+              print('A newer stable release already exists; catalog left unchanged.')
+              raise SystemExit(0)
+          endpoint = 'repos/' + repo + '/contents/repo.json'
+          current = api(endpoint + '?ref=' + branch)
+          data = Path('dist/repo.json').read_bytes()
+          if base64.b64decode(current['content']) == data:
+              print('Catalog already current.')
+              raise SystemExit(0)
+          payload = {
+              # The release code was already checked. This bot commit only changes repo.json.
+              'message': 'Update Homebrew catalog for ' + tag + ' [skip ci]',
+              'branch': branch, 'sha': current['sha'],
+              'content': base64.b64encode(data).decode('ascii'),
+          }
+          with tempfile.NamedTemporaryFile(mode='w', suffix='.json') as body:
+              json.dump(payload, body)
+              body.flush()
+              subprocess.check_call(['gh', 'api', '--method', 'PUT', endpoint,
+                                     '--input', body.name, '--silent'])
+          PYCODE

@@ -813,16 +813,6 @@
       </div>
       <div class="prot-status"><button type="button" class="pill idle" id="btn_devdetect" onclick="toggleDeviceDetection()">&mdash;</button></div>
     </div>
-    <div class="prot-row" id="row-locallookups" hidden>
-      <div class="prot-main">
-        <div class="prot-title" data-t="adv.localLookups">Answer device scans on the TV</div>
-        <div class="prot-desc" data-t="adv.localLookups.desc">LG's device detection asks your router for the name of every address on your home network:
-          whenever the TV's Home Hub looks for devices, and on some TVs every 5 minutes, even with Auto device detection off.
-          A network-wide ad blocker such as Pi-hole shows them as hundreds of requests. Switched on, the TV answers them itself,
-          so they stay off your network. Nothing the TV shows changes.</div>
-      </div>
-      <div class="prot-status"><button type="button" class="pill idle" id="btn_locallookups" onclick="toggleLocalLookups()">&mdash;</button></div>
-    </div>
   </div>
 
   <div class="pv-sec adv-sec" id="adv-lights" hidden data-t="adv.frontLights">Front lights</div>
@@ -1079,6 +1069,25 @@
   <!-- Home customisation, whichever Home is the TV's: power-on, Glasshouse Home's
        own options while it is on, LG's Home's layout while that is, and system apps -->
   <div id="home-custom" hidden>
+  <div id="local-weather-panel" style="margin:0 0 32px">
+    <h3 data-t="home.weather.title">Weather</h3>
+    <p id="local-weather-selected" aria-live="polite"></p>
+    <form id="local-weather-form">
+      <label for="local-weather-query" data-t="home.weather.query">Town or postal code</label>
+      <input id="local-weather-query" type="search" maxlength="100" required minlength="2" data-t-placeholder="home.weather.example" placeholder="e.g. Salzburg">
+      <label for="local-weather-country" data-t="home.weather.country">Country</label>
+      <select id="local-weather-country"><option value="AT" data-t="home.weather.austria">Austria</option><option value="DE" data-t="home.weather.germany">Germany</option><option value="CH" data-t="home.weather.switzerland">Switzerland</option><option value="" data-t="home.weather.all">All countries</option></select>
+      <button type="submit" data-t="home.weather.search">Search</button>
+    </form>
+    <p id="local-weather-status" role="status"></p>
+    <div id="local-weather-theme-cities" hidden>
+      <p data-t="home.theme.weatherCities">Locations from the theme</p>
+      <div class="btns" id="local-weather-theme-cities-buttons"></div>
+    </div>
+    <div class="btns" id="local-weather-results"></div>
+    <button type="button" id="local-weather-clear" hidden data-t="home.weather.clear">Hide weather</button>
+    <p><a href="https://open-meteo.com/" target="_blank" rel="noopener" data-t="home.weather.source">Weather and place search by Open-Meteo</a> · <a href="https://www.zippopotam.us/" target="_blank" rel="noopener" data-t="home.weather.postalSource">Postal codes by Zippopotam.us</a></p>
+  </div>
   <div class="pv-sec" data-t="home.customisation">Home customisation</div>
   <div class="home-group" id="home-g-start">
   <div class="pv-g" data-t="home.group.start">Starting up</div>
@@ -1150,6 +1159,13 @@
         <div class="prot-desc" data-t="home.showCecDesc">On each input’s tile: the HDMI-CEC address of the device behind it.</div>
       </div>
       <div class="prot-status"><button type="button" class="pill idle" id="home-show-cec" onclick="homeShow('showCec')">&mdash;</button></div>
+    </div>
+    <div class="prot-row home-gh-row home-show-row" hidden>
+      <div class="prot-main">
+        <div class="prot-title" data-t="home.showTvLogos">Channel logos</div>
+        <div class="prot-desc" data-t="home.showTvLogosDesc">On Internet TV: the playlist’s logo for each channel. Off shows the channel’s initials.</div>
+      </div>
+      <div class="prot-status"><button type="button" class="pill idle" id="home-show-tv-logos" onclick="homeShow('showTvLogos')">&mdash;</button></div>
     </div>
     <div class="prot-row home-gh-row" id="home-picture-row" hidden>
       <div class="prot-main">
@@ -1295,6 +1311,10 @@
   <div class="btns" style="max-width:240px"><button type="button" id="home-reset" onclick="homeResetLayout()" data-t="home.reset">Reset the layout</button></div>
   <div class="sub" data-t="home.resetDesc">The rows, apps and inputs go back to their first order, with LG’s promotions hidden again. Channels stay as they are.</div>
 
+  <div class="pv-sec adv-sec" data-t="home.tv.title">Internet TV</div>
+  <div class="sub" data-t="home.tv.intro">Channels from your IPTV provider, in a row of their own on Glasshouse Home. Add the same M3U link or Xtream login your IPTV app uses. It is kept on the TV and never shown here again.</div>
+  <div id="home-tv"></div>
+
   <div class="pv-sec adv-sec" data-t="home.colours.title">Colours</div>
   <div class="sub" data-t="home.colours.desc">The text on Glasshouse Home, and the accent that frames the chosen tile and marks what was last on. The quieter text is a shade of the text colour.</div>
   <div class="home-looks" id="home-looks"></div>
@@ -1303,6 +1323,17 @@
     <label><input type="color" id="home-col-accent" onchange="homeCustomColours()"> <span data-t="home.colours.accent">Accent</span></label>
     <button type="button" id="home-col-reset" onclick="homeSaveLayout({ colours: homeDefaultLook() })" data-t="home.colours.reset">Use the default colours</button>
   </div>
+
+  <div class="pv-sec adv-sec" data-t="home.theme.title">Hearth theme</div>
+  <div class="sub" data-t="home.theme.desc">A Hearth ZIP can set colours, fonts, wallpaper, app order, names and icons. Choose a ZIP from /media/developer/themes or upload one here.</div>
+  <div class="sub" id="home-theme-now" role="status"></div>
+  <div class="btns" id="home-theme-zips"></div>
+  <input type="file" id="home-theme-file" accept=".zip,application/zip" hidden onchange="homeThemePicked(this)">
+  <div class="btns">
+    <button type="button" id="home-theme-upload" onclick="q('home-theme-file').click()" data-t="home.theme.upload">Load a theme zip&hellip;</button>
+    <button type="button" id="home-theme-remove" onclick="homeThemeRemove()" data-t="home.theme.remove">Remove the theme</button>
+  </div>
+  <div class="sub" id="home-theme-note" role="status"></div>
 
   <div class="pv-sec adv-sec" data-t="home.wall.title">Wallpaper</div>
   <div class="sub" data-t="home.wall.introSets">A picture behind Glasshouse Home for each part of the day: none, one of the picture sets, or your own.</div>
@@ -1683,7 +1714,7 @@
       <div class="prot-row">
         <div class="prot-main">
           <div class="prot-title" data-t="server.backup.title">Settings backup</div>
-          <div class="prot-desc" data-t="server.backup.desc">Saves LG's sound, device, HDMI and ad settings, and Glasshouse's own, to a file. Restoring it, on this TV or another, sets those the TV has. Network access, MQTT and game settings are not included.</div>
+          <div class="prot-desc" data-t="server.backup.descV2">Saves LG settings, weather, wallpaper images, IPTV, catalogs and Glasshouse configuration, including credentials. Keep the file private. Restoring can change network access and login. LG per-input game settings and installed app packages are not included.</div>
           <div class="btns backup-btns">
             <button type="button" id="backup-save" onclick="saveBackup()" data-t="server.backup.save">Download backup</button>
             <button type="button" id="backup-restore" onclick="q('backup-file').click()" data-t="server.backup.restore">Restore from file</button>
@@ -1914,6 +1945,43 @@
   </div>
 </div>
 
+<div id="tvm" class="tvm" hidden role="dialog" aria-modal="true" aria-labelledby="tvm-title" data-pane="groups">
+  <header class="tvm-top">
+    <button type="button" class="tvm-back" onclick="tvmClose()"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.6" fill="none"/></svg><span data-t="home.tvm.back">Home</span></button>
+    <div class="tvm-titles">
+      <h2 id="tvm-title" data-t="home.tvm.title">Internet TV channels</h2>
+      <div id="tvm-summary" class="tvm-sub"></div>
+    </div>
+    <button type="button" id="tvm-undo" class="tvm-undo" disabled onclick="tvmUndo()" title="Undo the last change (Ctrl+Z)" data-t-title="home.tvm.undoTip"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.5 3.5L2.5 6.5l3 3" stroke="currentColor" stroke-width="1.5" fill="none"/><path d="M3 6.5h6.5a3.5 3.5 0 010 7H7" stroke="currentColor" stroke-width="1.5" fill="none"/></svg><span data-t="home.tvm.undo">Undo</span></button>
+    <select id="tvm-pl" class="pill-sel" hidden onchange="tvmPickPlaylist(this.value)" aria-label="Playlist" data-t-aria-label="home.tvm.playlist"></select>
+    <input type="search" id="tvm-find" class="tvm-input tvm-search" autocomplete="off" spellcheck="false" placeholder="Find a channel by name" data-t-placeholder="home.tvm.find" oninput="tvmFind(this.value)">
+  </header>
+  <div id="tvm-tabs" class="tvm-tabs" role="tablist">
+    <button type="button" role="tab" data-pane="groups" onclick="tvmPane('groups')"><span data-t="home.tvm.groups">Groups</span> <span class="num"></span></button>
+    <button type="button" role="tab" data-pane="channels" onclick="tvmPane('channels')"><span data-t="home.tvm.channels">Channels</span> <span class="num"></span></button>
+    <button type="button" role="tab" data-pane="lineup" onclick="tvmPane('lineup')"><span data-t="home.tvm.lineup">Lineup</span> <span class="num"></span></button>
+  </div>
+  <div class="tvm-body">
+    <section class="tvm-pane" data-pane="groups" aria-labelledby="tvm-groups-h">
+      <div class="tvm-pane-head"><h2 class="lbl" id="tvm-groups-h" data-t="home.tvm.groupsTitle">The provider’s groups</h2>
+        <input type="search" id="tvm-filter" class="tvm-input" autocomplete="off" spellcheck="false" placeholder="Filter groups" data-t-placeholder="home.tvm.filter" oninput="tvmFilter(this.value)"></div>
+      <div id="tvm-groups" class="tvm-scroll" data-scope="groups" onclick="tvmRowClick(event, 'groups')"></div>
+    </section>
+    <section class="tvm-pane" data-pane="channels" aria-label="Channels" data-t-aria-label="home.tvm.channels">
+      <div id="tvm-channels" class="tvm-scroll" data-scope="channels" onclick="tvmRowClick(event, 'channels')"></div>
+    </section>
+    <section class="tvm-pane tvm-pane-lineup" data-pane="lineup" aria-labelledby="tvm-lineup-h">
+      <div class="tvm-pane-head tvm-pane-head-row"><h2 class="lbl" id="tvm-lineup-h" data-t="home.tvm.lineupTitle">On the TV, in number order</h2>
+        <div id="tvm-lineup-tools" class="tvm-tools"></div></div>
+      <div id="tvm-lineup" class="tvm-scroll" data-scope="lineup" onclick="tvmRowClick(event, 'lineup')"></div>
+    </section>
+  </div>
+  <div class="tvm-foot">
+    <div id="tvm-toast" class="tvm-toast" role="status" aria-live="polite" hidden></div>
+    <div id="tvm-dock" class="tvm-dock" role="toolbar" aria-label="Selected channels" data-t-aria-label="home.tvm.bar.label" hidden></div>
+  </div>
+</div>
+
 <script src="/assets/i18n.js"></script>
 <!-- The server puts these back inline as one script, in this order: see inlineUI in lib/routes.js. -->
 <script src="/assets/ui/core.js"></script>
@@ -1932,6 +2000,8 @@
 <script src="/assets/ui/apps.js"></script>
 <script src="/assets/ui/install.js"></script>
 <script src="/assets/ui/home.js"></script>
+<script src="/assets/ui/iptv.js"></script>
+<script src="/assets/ui/tvchannels.js"></script>
 <script src="/assets/ui/audio.js"></script>
 <script src="/assets/ui/bluetooth.js"></script>
 <script src="/assets/ui/picture.js"></script>

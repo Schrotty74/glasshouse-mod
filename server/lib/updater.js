@@ -12,7 +12,7 @@ var hashFile = require('./installer').hashFile;
 var probeFetch = fetch.probeFetch;
 var execErr = fetch.execErr;
 
-var UPDATE_REPO = 'rorygallagher2024/glasshouse';
+var UPDATE_REPO = 'Schrotty74/glasshouse-mod';
 // The recent releases rather than only the latest, for what each one since
 // the installed version brings.
 var UPDATE_API = 'https://api.github.com/repos/' + UPDATE_REPO + '/releases?per_page=10';

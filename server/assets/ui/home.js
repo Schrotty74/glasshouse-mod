@@ -10,6 +10,7 @@ let homeSaving = false;
 let homeLoadRevision = 0;
 let homeWallTimer = null;
 let homeWallUploading = false;
+let homeThemeBusy = false;
 // null until the server says; false on a TV Glasshouse Home is not offered on.
 let homeAvailable = null;
 
@@ -17,7 +18,8 @@ const HOME_ROWS = {
   app: () => t('home.row.apps', 'Apps'),
   dev: () => t('home.row.inputs', 'Inputs'),
   ch: () => t('home.row.channels', 'Channels'),
-  rec: () => t('home.row.recommended', 'Recommended')
+  rec: () => t('home.row.recommended', 'Recommended'),
+  iptv: () => t('home.row.iptv', 'Internet TV')
 };
 
 async function homeGet(path) {
@@ -57,6 +59,7 @@ async function loadHome(afterSave) {
     homeCat = cat;
     homeLayout = st.layout;
   } catch (e) { showErr(e.message); return; }
+  await homeTvLoad();
   setHomeAvailable(homeStatus);
   if (!homeAvailable && activeTab === 'home') return showTab('control');
   renderHome();
@@ -257,10 +260,12 @@ function renderHome() {
   const hist = q('home-history-note');
   if (hist) hist.hidden = st.history;
   renderHomeRows();
+  renderHomeTv();
   renderHomeRecents();
   renderHomeChannels();
   renderHomeWalls();
   renderHomeColours();
+  renderHomeTheme();
   if (!homeDarkDragging) showHomeDarkening(homeLayout && typeof homeLayout.darkening === 'number' ? homeLayout.darkening : 100);
   const darkWrap = q('home-dark-wrap');
   if (darkWrap) darkWrap.classList.toggle('disabled', !homeWritable());
@@ -329,6 +334,12 @@ function homeCustomColours() {
 
 function homeItem(kind, id) {
   if (kind === 'app' && id === 'lg-home') return { title: t('home.lgHome', 'LG Home'), lg: true };
+  if (kind === 'iptv') {
+    const tv = (homeCat.iptv || []).find(x => x.id === id);
+    if (!tv) return null;
+    const showLogos = !homeLayout || homeLayout.showTvLogos !== false;
+    return { title: tv.name, icon: showLogos ? tv.logo : '', sub: tv.missing ? t('home.tv.gone', 'Not in the playlist any more') : tv.group };
+  }
   const list = kind === 'app' ? homeCat.apps : kind === 'dev' ? homeCat.devices : homeCat.channels;
   const it = list.find(x => x.id === id);
   if (!it) return null;
@@ -379,6 +390,7 @@ function renderHomeRows() {
           <button type="button" class="pill idle home-move" ${movable && i > 0 ? '' : 'disabled'} onclick="homeMoveTile('${kind}', ${i}, -1)" aria-label="${esc(t('home.earlier', 'Earlier'))}">↑</button>
           <button type="button" class="pill idle home-move" ${movable && i < order.length - 1 ? '' : 'disabled'} onclick="homeMoveTile('${kind}', ${i}, 1)" aria-label="${esc(t('home.later', 'Later'))}">↓</button>
           ${kind === 'app' ? homePlaceSelect(id, it, hidden, folded, usable) :
+            kind === 'iptv' ? `<button type="button" class="pill idle" ${usable ? '' : 'disabled'} onclick="homeTvRemoveFromRow('${jsq(id)}')">${esc(t('home.ch.remove', 'Remove'))}</button>` :
             kind === 'ch' ? `<button type="button" class="pill idle" ${usable ? '' : 'disabled'} onclick="homeToggleChannel('${jsq(id)}')">${esc(t('home.ch.remove', 'Remove'))}</button>` :
             renderToggle({ cls: hidden ? 'idle' : 'good', label: hidden ? t('home.hidden', 'Hidden') : t('home.shown', 'Shown'),
               disabled: !usable, onclick: `homeToggleTile('${kind}', '${jsq(id)}')` })}
@@ -387,7 +399,7 @@ function renderHomeRows() {
     return `<details class="home-row" data-kind="${kind}"${open.includes(kind) ? ' open' : ''}>
       <summary><span class="prot-title">${esc(HOME_ROWS[kind]())}</span>
         ${rowMove}</summary>
-      <div class="prot-table">${homeSortRow(kind, usable)}${kind === 'dev' ? homeUnusedRow(usable) : ''}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
+      <div class="prot-table">${homeSortRow(kind, usable)}${kind === 'dev' ? homeUnusedRow(usable) : ''}${tiles || `<div class="sub">${esc(kind === 'ch' ? t('home.ch.empty', 'No channels yet. Add them below.') : kind === 'iptv' ? t('home.tv.rowEmpty', 'No channels yet. Add them in Internet TV below, or from the row on the TV.') : t('home.rowEmpty', 'Nothing to show in this row yet.'))}</div>`}</div>
       ${kind === 'ch' ? homeChannelPicker() : ''}
     </details>`;
   }).join('');
@@ -619,7 +631,7 @@ function homePreviewOption(field) {
 }
 
 // The details Glasshouse Home shows unless switched off, and their toggles.
-const HOME_SHOW = [['showClock', 'home-show-clock'], ['showLastOn', 'home-show-last'], ['showAppCount', 'home-show-count'], ['showCec', 'home-show-cec']];
+const HOME_SHOW = [['showClock', 'home-show-clock'], ['showLastOn', 'home-show-last'], ['showAppCount', 'home-show-count'], ['showCec', 'home-show-cec'], ['showTvLogos', 'home-show-tv-logos']];
 
 function homeShow(key) {
   homeSaveLayout({ [key]: homeLayout[key] === false });
@@ -979,3 +991,141 @@ function initHomeDarkSlider() {
 }
 
 initHomeDarkSlider();
+
+let renderThemeCities = function () {};
+(function () {
+  var path = '/api/home/local-weather-place';
+  function el(id) { return document.getElementById('local-weather-' + id); }
+  var selected = el('selected'), results = el('results'), status = el('status'), clear = el('clear'), search = 0;
+  function show(place) {
+    selected.textContent = place ? t('home.weather.selected', 'Selected: {place}', {place: place.label}) : t('home.weather.empty', 'No weather location selected.');
+    clear.hidden = !place;
+  }
+  async function save(place) {
+    status.textContent = t('home.weather.saving', 'Saving…');
+    try { await homePost(path, {place: place}); show(place); results.textContent = ''; status.textContent = t('home.weather.saved', 'Saved.'); }
+    catch (e) { status.textContent = t('home.weather.saveError', 'Could not save the location: {error}', {error: e.message}); }
+  }
+  renderThemeCities = function (cities, can) {
+    var section = el('theme-cities'), buttons = el('theme-cities-buttons');
+    section.hidden = !cities.length;
+    buttons.textContent = '';
+    cities.forEach(function (city) {
+      var button = document.createElement('button');
+      button.type = 'button';
+      button.disabled = !can;
+      button.textContent = city.detail ? city.name + ', ' + city.detail : city.name;
+      button.onclick = function () { save({name: city.name, label: button.textContent, lat: city.lat, lon: city.lon}); };
+      buttons.appendChild(button);
+    });
+  };
+  clear.onclick = function () { save(null); };
+  el('form').onsubmit = async function (event) {
+    event.preventDefault();
+    var q = el('query').value.trim(), country = el('country').value, request = ++search;
+    results.textContent = '';
+    if (q.length < 2) { status.textContent = t('home.weather.short', 'Enter at least two characters.'); return; }
+    status.textContent = t('home.weather.searching', 'Searching…');
+    try {
+      var postal = /^\d{4,5}$/.test(q);
+      if (postal && !country) {
+        status.textContent = t('home.weather.postalCountry', 'Select a country for the postal code.');
+        return;
+      }
+      var url = postal ? 'https://api.zippopotam.us/' + encodeURIComponent(country) + '/' + encodeURIComponent(q)
+        : 'https://geocoding-api.open-meteo.com/v1/search?count=10&language=' + encodeURIComponent(document.documentElement.lang || 'en') + '&name=' + encodeURIComponent(q) +
+          (country ? '&countryCode=' + encodeURIComponent(country) : '');
+      var response = await fetch(url);
+      if (response.status !== 404 && !response.ok) throw new Error('HTTP ' + response.status);
+      var data = response.ok ? await response.json() : {};
+      if (request !== search) return;
+      var rows = postal ? (data.places || []).map(function (p) {
+        return {name:p['place name'],admin1:p.state,country:el('country').selectedOptions[0].text,
+          latitude:Number(p.latitude),longitude:Number(p.longitude)};
+      }) : (data.results || []);
+      var places = rows.filter(function (p) { return Number.isFinite(p.latitude) && Number.isFinite(p.longitude); });
+      status.textContent = places.length ? t('home.weather.choose', 'Select a location:') : t('home.weather.noResults', 'No matches. Check the country or search by town name.');
+      places.forEach(function (p) {
+        var label = [p.name, p.admin2, p.admin1, p.country].filter(function (v, i, a) { return v && a.indexOf(v) === i; }).join(', ');
+        var button = document.createElement('button');
+        button.type = 'button'; button.textContent = label;
+        button.onclick = function () { save({name:p.name,label:label,lat:p.latitude,lon:p.longitude}); };
+        results.appendChild(button);
+      });
+    } catch (e) {
+      if (request === search) status.textContent = t('home.weather.searchError', 'Location search is unavailable.');
+    }
+  };
+  fetch(api(path)).then(function (r) { return r.json(); }).then(function (r) {
+    if (r.ok) show(r.place);
+  }).catch(function () {});
+}());
+/* A Hearth theme (lib/home-theme on the server): the one on, the zips in
+   Hearth's folder on the TV, loading one from there or from this computer,
+   and taking it off again. */
+function renderHomeTheme() {
+  const now = q('home-theme-now'), zips = q('home-theme-zips');
+  if (!now || !homeStatus) return;
+  const th = homeStatus.theme;
+  const can = homeWritable() && !homeThemeBusy;
+  if (th) {
+    const p = th.parts || {};
+    const parts = [];
+    if (p.colours) parts.push(t('home.theme.partColours', 'colours'));
+    if (p.fonts) parts.push(t('home.theme.partFonts', 'fonts'));
+    if (p.wallpaper) parts.push(p.wallpaper > 1 ? t('home.theme.partSlideshow', 'a slideshow of {n}', { n: p.wallpaper }) : t('home.theme.partWallpaper', 'a wallpaper'));
+    if (p.apps) parts.push(t('home.theme.partApps', 'the order of {n} apps', { n: p.apps }));
+    if (p.icons) parts.push(t('home.theme.partIcons', '{n} icons', { n: p.icons }));
+    now.textContent = t('home.theme.on', 'On: {name}', { name: th.name + (th.author ? ' (' + th.author + ')' : '') }) +
+      (parts.length ? ' \u00b7 ' + parts.join(', ') : '') +
+      (th.ignored && th.ignored.length ? ' \u00b7 ' + t('home.theme.ignored', 'not used on Glasshouse Home: {parts}', { parts: th.ignored.join(', ') }) : '');
+  } else now.textContent = t('home.theme.none', 'No theme is on.');
+  renderThemeCities(th && th.cities || [], can);
+  zips.innerHTML = (homeStatus.themeZips || []).map(z => `<button type="button" class="pill idle${th && th.source === z.name ? ' on' : ''}" ${can ? '' : 'disabled'}
+    onclick="homeThemeLoad(${esc(JSON.stringify(z.name))})">${esc(z.name)}</button>`).join('');
+  q('home-theme-upload').disabled = !can;
+  q('home-theme-remove').disabled = !can || !th;
+}
+
+function homeThemeErrors(r) {
+  return [r.error].concat(r.errors || []).filter(Boolean).join(' \u2014 ');
+}
+
+async function homeThemeSend(send) {
+  if (!homeWritable() || homeThemeBusy) return;
+  const note = q('home-theme-note');
+  note.textContent = t('home.theme.loading', 'Loading the theme\u2026');
+  homeThemeBusy = true;
+  renderHomeTheme();
+  try {
+    const res = await send();
+    const r = await res.json();
+    if (!r || !r.ok) throw new Error(r ? homeThemeErrors(r) : t('common.unknownError', 'unknown error'));
+    note.textContent = r.theme ? t('home.theme.loaded', 'Theme loaded. Home updates within a few seconds.') : t('home.theme.removed', 'Theme removed.');
+  } catch (e) { note.textContent = e.message; }
+  finally {
+    homeThemeBusy = false;
+    await loadHome();
+  }
+}
+
+function homeThemeLoad(name) {
+  return homeThemeSend(() => fetch(api('/api/home/theme/load'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name })
+  }));
+}
+
+function homeThemePicked(input) {
+  const file = input.files[0];
+  input.value = '';
+  if (!file) return;
+  return homeThemeSend(() => fetch(api('/api/home/theme/upload?name=' + encodeURIComponent(file.name)), {
+    method: 'POST', headers: { 'Content-Type': 'application/zip' }, body: file
+  }));
+}
+
+function homeThemeRemove() {
+  return homeThemeSend(() => fetch(api('/api/home/theme/remove'), {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
+  }));
+}

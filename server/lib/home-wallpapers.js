@@ -302,4 +302,4 @@ function removeSet(name) {
 }
 
 module.exports = { init: init, status: status, image: image, upload: upload, removeUploads: removeUploads,
-  choose: choose, receiveJpeg: receiveJpeg, SETS: SETS };
+  validJpeg: validJpeg, choose: choose, receiveJpeg: receiveJpeg, SETS: SETS };

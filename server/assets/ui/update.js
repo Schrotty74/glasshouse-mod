@@ -1,7 +1,7 @@
 // The release check, in-place upgrade and rollback, and the app on the TV's home screen.
 
-// Releases are cut on the upstream repo, so the tag link points there.
-const REPO = 'https://github.com/rorygallagher2024/glasshouse';
+// This build installs releases published by the fork.
+const REPO = 'https://github.com/Schrotty74/glasshouse-mod';
 
 // A git build's version carries its commit as build metadata, 0.80.1+55e51e5 or
 // 0.80.1+55e51e5.dirty; releases and the updater know only the part before it.
@@ -762,7 +762,7 @@ async function saveBackup() {
     const b = await r.json();
     if (!r.ok || b.format !== 'glasshouse-backup') throw new Error(b.error || r.status);
     downloadBackupFile(b);
-    backupMessage(t('server.backup.saved', 'Saved {count} LG settings and Glasshouse’s own.', { count: Object.keys(b.lg || {}).length }));
+    backupMessage(t('server.backup.private', 'This backup contains private settings and credentials. Keep it private.') + ' ' + t('server.backup.saved', 'Saved {count} LG settings and Glasshouse’s own.', { count: Object.keys(b.lg || {}).length }));
   } catch (e) {
     backupMessage(t('server.backup.saveFailed', 'Could not make a backup — {error}', { error: e.message }));
   }
@@ -783,7 +783,8 @@ async function restoreBackupData(b) {
   }
   const from = (b.from && b.from.model) || t('server.backup.unknownTv', 'an unknown TV');
   const when = b.created ? new Date(b.created).toLocaleString() : '?';
-  if (!confirm(t('server.backup.confirm', 'Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV.', { tv: from, date: when }))) return;
+  const privateNotice = b.configuration ? t('server.backup.completeConfirm', 'This also restores Glasshouse network settings, access token and credentials. The dashboard address or login may change.') + '\n\n' : '';
+  if (!confirm(privateNotice + t('server.backup.confirm', 'Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV.', { tv: from, date: when }))) return;
   backupMessage(t('server.backup.restoring', 'Restoring…'));
   try {
     const r = await fetch(api('/api/backup'), {

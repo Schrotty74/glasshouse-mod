@@ -11,6 +11,7 @@ var say = require('./say');
 var localAddress4 = require('./util').localAddress4;
 var localAddress6 = require('./util').localAddress6;
 var listenDualStack = require('./util').listenDualStack;
+var allocBuffer = require('./util').allocBuffer;
 var hostPort = require('./util').hostPort;
 var sendIconFile = require('./iconserver').sendIconFile;
 var writeJsonAtomic = require('./util').writeJsonAtomic;
@@ -86,6 +87,8 @@ var homeModule = null;
 var clockModule = null;
 /** @type {typeof import('./home-picture')} */
 var homePictureModule = null;
+/** @type {typeof import('./iptv')} */
+var iptvModule = null;
 /** @type {typeof import('./screensavers')} */
 var screensaversModule = null;
 /** @type {typeof import('./updater')} */
@@ -745,6 +748,42 @@ function fromTV(req) {
  * Origins closes the gap for anything that does slip through. `exact` demands
  * the type with no parameters. Sends the refusal and returns false.
  */
+// A theme file's type by its extension: only these are in a theme (lib/home-theme).
+var THEME_TYPES = {
+  '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+  '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.otf': 'font/otf'
+};
+
+/*
+ * A theme zip sent as the request's body, which states its size: a Hearth
+ * theme is a few MB, and the TV holds it in memory to unpack it.
+ */
+function receiveZip(req, cb) {
+  var length = String(req.headers['content-length'] || ''), max = homeModule.theme.MAX_ZIP;
+  if (req.headers['transfer-encoding'] || !/^\d{1,9}$/.test(length) || +length < 1 || +length > max) {
+    return cb({ status: 413, message: msg('srv.home.themeSize', 'The theme zip must be at most {mb} MB.', { mb: max >> 20 }) });
+  }
+  var chunks = [], got = 0, done = false;
+  var timer = setTimeout(function () { finish({ status: 408, message: 'the upload timed out' }); }, 60000);
+  function finish(error, buf) {
+    if (done) return;
+    done = true;
+    clearTimeout(timer);
+    cb(error, buf);
+  }
+  req.on('error', function () { finish({ status: 400, message: 'the upload failed' }); });
+  req.on('data', function (chunk) {
+    if (done) return;
+    got += chunk.length;
+    if (got > +length) return finish({ status: 413, message: 'the upload is larger than it said' });
+    chunks.push(chunk);
+  });
+  req.on('end', function () {
+    if (got !== +length) return finish({ status: 400, message: 'the upload was cut short' });
+    finish(null, Buffer.concat(chunks));
+  });
+}
+
 function postGuard(req, res, wantType, exact) {
   var ctype = String(req.headers['content-type'] || '').toLowerCase();
   if (exact ? ctype !== wantType : ctype.indexOf(wantType) !== 0) {
@@ -763,14 +802,19 @@ function postGuard(req, res, wantType, exact) {
   return true;
 }
 
-function readJsonBody(req, res, cb) {
+function readJsonBody(req, res, cb, max) {
   if (!postGuard(req, res, 'application/json', false)) return;
-  var body = '';
+  var body = '', tooBig = false;
+  // A body in several chunks can split a character: decoding each chunk alone would garble it.
+  req.setEncoding('utf8');
   req.on('data', function (d) {
+    if (tooBig) return;
     body += d;
-    if (body.length > 8192) req.destroy();
+    // Read to the end and answer, rather than drop the connection: the page then says why.
+    if (body.length > (max || 8192)) { tooBig = true; body = ''; }
   });
   req.on('end', function () {
+    if (tooBig) return send(res, 413, JSON.stringify({ ok: false, error: 'too-big' }));
     var j = {};
     try { j = JSON.parse(body); } catch (e) {
       return send(res, 400, JSON.stringify({ ok: false, error: 'malformed JSON' }));
@@ -1127,6 +1171,8 @@ function lgHomeOptions(glasshouseHome, cb) {
  * but the layout and what is open, so it needs no allowControl; anything from
  * the network does.
  */
+var localWeatherCache = null;
+var localWeatherPending = {};
 function handleHomeRoute(req, res, u, pathname) {
   function reply(r) { send(res, r && r.ok === false ? 400 : 200, JSON.stringify(r)); }
   if (req.method === 'GET') {
@@ -1143,7 +1189,9 @@ function handleHomeRoute(req, res, u, pathname) {
         st.lgHomeAvailable = lgHomeLayoutAvailable() || tileHidingAvailable();
         // Open Home at power-on is on the Home tab too, wherever LG has it.
         if (st.lgHomeAvailable || st.homeAutoLaunch !== undefined) st.available = true;
-        withLgHome(function () {
+        withLgHome(function () { homeModule.theme.listZips(function (zips) {
+          // The TV app steps through Hearth's zips with OK.
+          st.themeZips = zips;
           if (wants.indexOf('catalogue') === -1) return reply(st);
           homeModule.catalogue(function (c) {
             st.catalogue = c;
@@ -1153,7 +1201,7 @@ function handleHomeRoute(req, res, u, pathname) {
               reply(st);
             });
           });
-        });
+        }); });
         function withLgHome(next) {
           if (wants.indexOf('lghome') === -1 || !st.lgHomeAvailable) return next();
           lgHomeOptions(st.enabled, function (lg) {
@@ -1163,6 +1211,47 @@ function handleHomeRoute(req, res, u, pathname) {
         }
       });
     }
+    if (pathname === '/api/home/local-weather-current') {
+      var location;
+      try { location = JSON.parse(fs.readFileSync(path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json'), 'utf8')); }
+      catch (e) {
+        if (e.code === 'ENOENT') return reply({ok:true, weather:null});
+        return reply({ok:false, error:'Weather location unavailable'});
+      }
+      if (!location) return reply({ok:true, weather:null});
+      if (typeof location.lat !== 'number' || !isFinite(location.lat) || Math.abs(location.lat) > 90 ||
+          typeof location.lon !== 'number' || !isFinite(location.lon) || Math.abs(location.lon) > 180)
+        return reply({ok:false, error:'Invalid weather location'});
+      var key = location.lat + '/' + location.lon + '/' + location.name;
+      var cached = localWeatherCache && localWeatherCache.key === key ? localWeatherCache : null;
+      if (cached && Date.now() - cached.at < 60 * 60000) return reply({ok:true, weather:cached.weather});
+      if (localWeatherPending[key]) { localWeatherPending[key].push(reply); return; }
+      localWeatherPending[key] = [reply];
+      var forecast = 'https://api.open-meteo.com/v1/forecast?latitude=' + location.lat +
+        '&longitude=' + location.lon + '&current=temperature_2m,weather_code,is_day';
+      return fetchLib.getJson(forecast, function (err, data) {
+        var current = data && data.current, weather;
+        if (!err && current && typeof current.temperature_2m === 'number' && isFinite(current.temperature_2m) &&
+            typeof current.weather_code === 'number') {
+          weather = {name:location.name, temperature:Math.round(current.temperature_2m),
+            code:current.weather_code, day:!!current.is_day};
+          localWeatherCache = {key:key, at:Date.now(), weather:weather};
+        } else if (cached && Date.now() - cached.at < 180 * 60000) weather = cached.weather;
+        var waiting = localWeatherPending[key];
+        delete localWeatherPending[key];
+        waiting.forEach(function (sendWeather) {
+          sendWeather(weather ? {ok:true, weather:weather} : {ok:false, error:'Weather provider unavailable'});
+        });
+      });
+    }
+    if (pathname === '/api/home/local-weather-place') {
+      try {
+        return reply({ ok: true, place: JSON.parse(fs.readFileSync(path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json'), 'utf8')) });
+      } catch (e) {
+        if (e.code === 'ENOENT') return reply({ ok: true, place: null });
+        return reply({ ok: false, error: 'Weather location could not be read' });
+      }
+    }
     if (pathname === '/api/home/catalogue') {
       return homeModule.catalogue(function (c) {
         var st = homeModule.viewStatus();
@@ -1171,6 +1260,7 @@ function handleHomeRoute(req, res, u, pathname) {
         c.enabled = st.enabled;
         c.supported = st.supported;
         c.wallpapers = st.wallpapers;
+        c.theme = st.theme;
         c.layoutVersion = homeModule.layoutVersion();
         reply(c);
       });
@@ -1192,13 +1282,25 @@ function handleHomeRoute(req, res, u, pathname) {
         send(res, status, JSON.stringify({ ok: false, error: error }));
       }, 'image/jpeg');
     }
+    // A Hearth theme: the one on and the zips in Hearth's folder; and its files, for the view.
+    if (pathname === '/api/home/theme') {
+      return homeModule.theme.listZips(function (zips) {
+        reply({ ok: true, theme: homeModule.theme.summary(), zips: zips });
+      });
+    }
+    if (pathname === '/api/home/theme/file') {
+      var rel = String(u.query && u.query.path || '');
+      var asset = homeModule.theme.asset(rel, String(u.query && u.query.v || ''));
+      if (!asset) return send(res, 404, JSON.stringify({ ok: false, error: 'not in the theme' }));
+      return send(res, 200, asset, THEME_TYPES[path.extname(rel).toLowerCase()] || 'application/octet-stream');
+    }
     if (pathname === '/api/home/recents') return homeModule.recentApps.list(reply);
     if (pathname === '/api/home/recents/image') {
       var snapshot = homeModule.recentApps.imagePath(u.query && u.query.id);
       if (!snapshot) return send(res, 404, JSON.stringify({ ok: false, error: 'no picture' }));
       return sendIconFile(req, res, snapshot, function (status, error) {
         send(res, status, JSON.stringify({ ok: false, error: error }));
-      }, /\.png$/i.test(snapshot) ? 'image/png' : 'image/jpeg', 'private, no-store');
+      }, /\.png$/i.test(snapshot) ? 'image/png' : 'image/jpeg', 'private, no-cache');
     }
     if (pathname === '/api/home/icon') {
       return homeModule.iconPath(u.query && u.query.id, function (iconPath) {
@@ -1220,6 +1322,13 @@ function handleHomeRoute(req, res, u, pathname) {
         reply(r);
       });
     }
+    if (pathname === '/api/home/theme/upload') {
+      if (!postGuard(req, res, 'application/zip', true)) return;
+      return receiveZip(req, function (error, buf) {
+        if (error) return send(res, error.status, JSON.stringify({ ok: false, error: error.message }));
+        homeModule.loadTheme(buf, String(u.query && u.query.name || '').slice(0, 200), reply);
+      });
+    }
     if (pathname === '/api/home/beat') {
       if (!postGuard(req, res, 'application/json', false)) return;
       return readJsonBody(req, res, function (body) {
@@ -1230,8 +1339,32 @@ function handleHomeRoute(req, res, u, pathname) {
       });
     }
     return readJsonBody(req, res, function (body) {
+      if (pathname === '/api/home/local-weather-place') {
+        var place = body && body.place;
+        if (place !== null && (!place || typeof place.name !== 'string' || !place.name.trim() ||
+          place.name.length > 160 || typeof place.label !== 'string' || place.label.length > 260 ||
+          typeof place.lat !== 'number' || !isFinite(place.lat) || Math.abs(place.lat) > 90 ||
+          typeof place.lon !== 'number' || !isFinite(place.lon) || Math.abs(place.lon) > 180)) {
+          return reply({ ok: false, error: 'Invalid weather location' });
+        }
+        try {
+          var weatherFile = path.join(path.dirname(configFilePath || '/var/lib/tvweb/config.json'), 'local-weather-place.json');
+          writeJsonAtomic(weatherFile, place === null ? null :
+            { name: place.name, label: place.label, lat: place.lat, lon: place.lon }, 384);
+          return reply({ ok: true });
+        } catch (e) {
+          return reply({ ok: false, error: 'Weather location could not be saved' });
+        }
+      }
       if (pathname === '/api/home/layout') return homeModule.setLayout(body, reply);
       if (pathname === '/api/home/start-layout') return homeModule.setHideLgHomeAtStart(body, reply);
+      if (pathname === '/api/home/theme/load') {
+        return homeModule.theme.readZip(body && body.name, function (err, buf) {
+          if (err) return reply({ ok: false, error: err.message });
+          homeModule.loadTheme(buf, String(body.name), reply);
+        });
+      }
+      if (pathname === '/api/home/theme/remove') return homeModule.removeTheme(reply);
       if (pathname === '/api/home/wallpapers') return homeModule.setWallpapers(body, reply);
       if (pathname === '/api/home/enable') return homeModule.enable(reply);
       if (pathname === '/api/home/disable') return homeModule.disable(reply);
@@ -1247,6 +1380,97 @@ function handleHomeRoute(req, res, u, pathname) {
       }
       send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
     });
+  }
+  send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
+}
+
+/*
+ * A file a worker checked, piped unread: a logo (its type from its first
+ * bytes) or a guide shard. Never cached by a shared cache: a logo names the
+ * owner's provider.
+ */
+function pipeIptvFile(req, res, file, type) {
+  fs.stat(file, function (err, st) {
+    if (err || !st.isFile()) return send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
+    function go(contentType) {
+      res.writeHead(200, { 'Content-Type': contentType, 'Content-Length': st.size, 'Cache-Control': 'private, max-age=3600' });
+      if (req.method === 'HEAD') return res.end();
+      var stream = fs.createReadStream(file);
+      stream.on('error', function () { res.end(); });
+      stream.pipe(res);
+    }
+    if (type) return go(type);
+    fs.open(file, 'r', function (e, fd) {
+      if (e) return send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
+      var head = allocBuffer(12);
+      fs.read(fd, head, 0, 12, 0, function () {
+        fs.close(fd, function () {});
+        var t = head[0] === 0x89 && head[1] === 0x50 ? 'image/png' : head[0] === 0xff && head[1] === 0xd8 ? 'image/jpeg'
+          : head.toString('ascii', 8, 12) === 'WEBP' ? 'image/webp' : null;
+        if (!t) return send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
+        go(t);
+      });
+    });
+  });
+}
+
+/*
+ * Internet TV (lib/iptv). Nothing here carries a playlist's URL, user name
+ * or password back, except the play URL, which only the TV itself is given:
+ * Home plays it in its own <video>.
+ */
+function handleIptvRoute(req, res, u, pathname) {
+  function reply(r) { send(res, r && r.ok === false ? 400 : 200, JSON.stringify(r)); }
+  var qs = u.query || {};
+  if (req.method === 'GET' || req.method === 'HEAD') {
+    if (pathname === '/api/iptv/playlists') {
+      var st = iptvModule.status();
+      // Whether this page may change anything: the POSTs below say the same.
+      st.writable = !!(config.allowControl || fromTV(req));
+      return reply(st);
+    }
+    if (pathname === '/api/iptv/groups') return iptvModule.groups(String(qs.pl || ''), reply);
+    if (pathname === '/api/iptv/browse') {
+      return iptvModule.browse(String(qs.pl || ''), qs.group === undefined ? null : String(qs.group), +qs.page || 0, reply, +qs.size || 0);
+    }
+    if (pathname === '/api/iptv/lineup') return reply(iptvModule.lineup());
+    if (pathname === '/api/iptv/search') return iptvModule.search(String(qs.pl || ''), String(qs.q || ''), String(qs.group || ''), reply);
+    if (pathname === '/api/iptv/guide') {
+      var nn = iptvModule.nowNext();
+      return reply({ ok: true, guide: nn.guide, nextChange: nn.nextChange });
+    }
+    if (pathname === '/api/iptv/logo') {
+      var logo = iptvModule.logoPath(String(qs.pl || ''), String(qs.id || ''));
+      if (!logo) return send(res, 404, JSON.stringify({ ok: false, error: 'no logo' }));
+      return pipeIptvFile(req, res, logo, null);
+    }
+    if (pathname === '/api/iptv/schedule') {
+      var shard = iptvModule.schedulePath(String(qs.pl || ''), String(qs.key || ''), String(qs.day || ''));
+      if (!shard) return send(res, 404, JSON.stringify({ ok: false, error: 'no schedule' }));
+      return pipeIptvFile(req, res, shard, 'application/json');
+    }
+    if (pathname === '/api/iptv/stream') {
+      // The play URL carries the login on Xtream: for the TV's own Home only.
+      if (!fromTV(req)) return send(res, 403, JSON.stringify({ ok: false, error: 'forbidden' }));
+      var stream = iptvModule.streamUrl(String(qs.pl || ''), String(qs.key || ''));
+      if (!stream) return send(res, 404, JSON.stringify({ ok: false, error: 'no-stream' }));
+      res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
+      return res.end(JSON.stringify({ ok: true, url: stream.url, format: stream.format, account: stream.account, maxConnections: stream.maxConnections }));
+    }
+  }
+  if (req.method === 'POST') {
+    if (!config.allowControl && !fromTV(req)) {
+      return send(res, 403, JSON.stringify({ ok: false, error: msg('srv.controlsOff', 'controls disabled in config') }));
+    }
+    // A lineup edit can name up to 2,000 channels with their names and groups.
+    return readJsonBody(req, res, function (body) {
+      if (pathname === '/api/iptv/playlists') return iptvModule.playlistsAction(body, reply);
+      if (pathname === '/api/iptv/selection') return iptvModule.setSelection(body, reply);
+      if (pathname === '/api/iptv/lineup') return iptvModule.setLineup(body, reply);
+      if (pathname === '/api/iptv/lease') return reply(iptvModule.lease(body && body.on === true, body && body.full === true));
+      if (pathname === '/api/iptv/check') return iptvModule.checkStream(String(body && body.pl || ''), String(body && body.key || ''), reply);
+      send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
+    }, pathname === '/api/iptv/lineup' ? 524288 : 8192);
   }
   send(res, 404, JSON.stringify({ ok: false, error: 'not found' }));
 }
@@ -1890,6 +2114,8 @@ function handleRequest(req, res) {
     if (homeModule) return handleHomeRoute(req, res, u, pathname);
   }
 
+  if (pathname.indexOf('/api/iptv/') === 0 && iptvModule) return handleIptvRoute(req, res, u, pathname);
+
   if (pathname === '/api/quickaccess' && req.method === 'POST') {
     if (!config.allowControl) {
       return send(res, 403, JSON.stringify({ ok: false, error: msg('srv.controlsOff', 'controls disabled in config') }));
@@ -1902,6 +2128,11 @@ function handleRequest(req, res) {
     });
   }
 
+  // What the remote's keys do, on its own for the Home tab's Guide button choice.
+  if (pathname === '/api/remotekeys' && req.method === 'GET') {
+    if (!remoteKeysModule) return send(res, 200, JSON.stringify({ ok: true, supported: false }));
+    return remoteKeysModule.getRemoteKeys(function (rk) { send(res, 200, JSON.stringify(rk || { ok: true, supported: false })); });
+  }
   if (pathname === '/api/remotekeys' && req.method === 'POST') {
     if (!config.allowControl) {
       return send(res, 403, JSON.stringify({ ok: false, error: msg('srv.controlsOff', 'controls disabled in config') }));
@@ -1996,7 +2227,7 @@ function handleRequest(req, res) {
 
   // A backup of the TV's settings, saved by the browser as a file.
   if (pathname === '/api/backup' && req.method === 'GET' && backupModule) {
-    return backupModule.create(function (b) { send(res, 200, JSON.stringify(b)); });
+    return backupModule.create(function (b) { send(res, b.ok === false ? 500 : 200, JSON.stringify(b)); });
   }
 
   /*
@@ -2014,14 +2245,20 @@ function handleRequest(req, res) {
     if (borigin && String(borigin).replace(/^https?:\/\//, '') !== String(req.headers.host || '')) {
       return send(res, 403, JSON.stringify({ ok: false, error: 'cross-origin request refused' }));
     }
-    var bbody = '';
+    var bbody = [], bbytes = 0, brejected = false;
     req.on('data', function (d) {
-      bbody += d;
-      if (bbody.length > 65536) req.destroy();
+      if (brejected) return;
+      bbytes += d.length;
+      if (bbytes > backupModule.MAX_BYTES) {
+        brejected = true; bbody = [];
+        return send(res, 413, JSON.stringify({ ok: false, error: 'backup exceeds the 64 MB limit' }));
+      }
+      bbody.push(d);
     });
     req.on('end', function () {
+      if (brejected) return;
       var b = null;
-      try { b = JSON.parse(bbody); } catch (e) {
+      try { b = JSON.parse(Buffer.concat(bbody).toString('utf8')); } catch (e) {
         return send(res, 400, JSON.stringify({ ok: false, error: 'malformed JSON' }));
       }
       if (installBusyRefusal(res)) return;
@@ -2130,6 +2367,7 @@ function init(opts) {
   if (opts.home) homeModule = opts.home;
   if (opts.clock) clockModule = opts.clock;
   if (opts.homePicture) homePictureModule = opts.homePicture;
+  if (opts.iptv) iptvModule = opts.iptv;
   if (opts.screensavers) screensaversModule = opts.screensavers;
   if (opts.updater) updaterModule = opts.updater;
   if (opts.logs) logsModule = opts.logs;

@@ -1,5 +1,7 @@
 # Installing
 
+For Glasshouse Mod packages and migration from the official version, follow [Installing this fork](fork-installation.md). The computer deployment method below also installs this fork from its working branch.
+
 ## Quick start
 
 1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
@@ -28,8 +30,8 @@ The models confirmed so far are listed under [Tested TVs](tested-tvs.md). LG nam
 Download the project onto a computer on the same network as the TV.
 
 ```bash
-git clone https://github.com/rorygallagher2024/glasshouse.git
-cd glasshouse/server
+git clone --branch launcher-weather-waldsee https://github.com/Schrotty74/glasshouse-mod.git
+cd glasshouse-mod/server
 ```
 
 ### 2. Install the dashboard
@@ -134,7 +136,7 @@ Glasshouse can be configured either directly on the TV screen with the remote or
     | `ntp.server` | `""` | Hostname of an NTP server (e.g., `"pool.ntp.org"`) to synchronize the TV's clock on boot and hourly. |
     | `syslog.server` | `""` | Remote syslog server address to forward TV and Glasshouse logs over RFC 5424 UDP (port `514`). |
     | `allowTileHiding` | `false` | Experimental: allows hiding built-in LG system tiles and apps on the home screen. |
-    | `allowExperimentalHome` | `false` | Experimental: offers [Glasshouse Home](dashboard/home.md) on webOS 11, where it is untried. |
+    | `allowExperimentalHome` | `false` | Experimental: offers [Glasshouse Home](dashboard/home.md) on webOS 3, and on webOS 12 and later, where it is untried. |
     | `allowExperimentalScreensavers` | `false` | Experimental: allows custom QML screensavers on webOS 12 and newer, which are untried there. Named `allowOnWebos10` before 0.105; that name is still read, and renamed when the server starts. |
     | `screensaverPowerOffMinutes` | unset (off) | Puts the TV in standby once a screen saver has been on this many minutes (1 to 1440). Also set from the Screensaver tab as **Poweroff after**. |
     | `allowNetworkDebugger` | `false` | Exposes the webOS app inspector on port `9998` over the local network for developers using `ares-inspect`. |

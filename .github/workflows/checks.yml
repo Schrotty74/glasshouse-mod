@@ -58,6 +58,9 @@ jobs:
         run: ./scripts/check-entities.py --stats test/fixtures/stats-b8-webos4.json
 
       # The updater already on a TV checks the release it downloads (#586).
+      - name: fetch the upstream updater baseline
+        run: git fetch --no-tags https://github.com/rorygallagher2024/glasshouse.git tag v0.80.8
+
       - name: earlier releases' updaters install this tree
         run: node scripts/check-upgrade.js
 

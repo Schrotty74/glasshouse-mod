@@ -1,6 +1,8 @@
 <p align="center"><img src="logo/glasshouse-512.png" width="112" alt="Glasshouse logo: a G whose top is a roof"></p>
 
-# Glasshouse
+# Glasshouse Mod
+
+Weather beside the clock, centered Apps and Inputs rows, and four Waldsee wallpapers. [Install this fork](fork-installation.md) or download an IPK from [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest).
 
 **Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
 
@@ -34,7 +36,7 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 * **Access**: Rooted via [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Telnet or SSH. No external dependencies or internet access needed on the TV
 * **Tested hardware**: 66 TVs across 43 series verified so far (LF632V, UH600V, UH6030, UH610V, UH635V, B6, B7, SJ80, UJ63, B8, C8, LK61, UK63, LM57, UM71, UM73, C9, CX, GX, UN73, C1, UP80, UP81, QNED82, UQ80, C2, G2, C3, UR80, B4, G3, C4, G4, UT73, UT81, C5, G5, CS, LX3, UA73, C6, NU80, QNED84). Other rooted models should work; [see full table](tested-tvs.md)
 
-[Install](install.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button }
+[Install this fork](fork-installation.md){ .md-button .md-button--primary } [See the dashboard](dashboard/index.md){ .md-button }
 
 <div id="screenshots"></div>
 
@@ -51,11 +53,9 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 === "Glasshouse Home"
 
     <p align="center">
-      <a href="screenshots/home.jpg"><img src="screenshots/home.jpg" alt="Glasshouse Home on the TV screen with apps and inputs" width="440"></a>
-      &nbsp;
-      <a href="screenshots/home-evening.jpg"><img src="screenshots/home-evening.jpg" alt="Glasshouse Home with an evening colour theme" width="440"></a>
+      <a href="screenshots/glasshouse-mod-home.png"><img src="screenshots/glasshouse-mod-home.png" alt="Glasshouse Mod on LG G5: weather beside the clock, centered Apps and Inputs, Last watched on the right and Waldsee wallpaper" width="880"></a>
       <br>
-      <sub><a href="dashboard/home/">Glasshouse Home</a> replaces LG's ad-heavy launcher with a clean, instant app and input row on the TV.</sub>
+      <sub><a href="dashboard/home/">Glasshouse Mod Home</a> with the fork's layout and Waldsee night wallpaper.</sub>
     </p>
 
 === "TV app"
@@ -76,22 +76,20 @@ Use it for remote control, app installation and removal, OLED panel care, privac
       <sub>The TV arrives over <a href="HOME-ASSISTANT/">MQTT Discovery</a> as a single unified device with its controls, sensors, and remote button events.</sub>
     </p>
 
-=== "Android app"
-
-    <p align="center">
-      <a href="screenshots/android-tvs.png"><img src="screenshots/android-tvs.png" alt="Android app showing online TVs" width="280"></a>
-      &nbsp;&nbsp;
-      <a href="screenshots/android-dashboard.png"><img src="screenshots/android-dashboard.png" alt="Android app showing the full-screen TV dashboard" width="280"></a>
-      <br>
-      <sub><a href="apps/android/">Glasshouse for Android</a> keeps a list of TVs, shows which are online, wakes them with Wake-on-LAN, and opens each dashboard full screen.</sub>
-    </p>
-
 === "Pane (macOS)"
 
     <p align="center">
       <a href="apps/pane/"><img src="https://raw.githubusercontent.com/denisvinciguerra/pane-for-glasshouse/main/docs/screenshots/hero.png" alt="Pane macOS menu-bar remote" width="560"></a>
       <br>
       <sub><a href="apps/pane/">Pane</a> is a macOS menu-bar remote to control the TV, switch inputs, and adjust settings without opening a browser.</sub>
+    </p>
+
+=== "Pane (iOS)"
+
+    <p align="center">
+      <a href="apps/pane-ios/"><img src="https://raw.githubusercontent.com/denisvinciguerra/pane-for-glasshouse/main/docs/screenshots/iphone-remote.png" alt="Pane on an iPhone" width="220"></a>
+      <br>
+      <sub><a href="apps/pane-ios/">Pane for iPhone and iPad</a> brings the remote to the couch with sources, picture settings, and pinned shortcuts.</sub>
     </p>
 
 ## What it's for
@@ -104,7 +102,7 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
     ---
 
-    A replacement Home app with full control over what displays, and no ads. This feature is currently only available on webOS 7, 9 and 10 TVs.
+    A replacement Home app with full control over what displays, and no ads, with a row of Internet TV channels from your own IPTV playlist. Available on webOS 4, 5, 6, 7, 9, 10 and 11; webOS 3 and later versions can try it with a setting.
 
 -   **[Controlling the TV without the cloud](dashboard/control.md)**
 
@@ -172,17 +170,17 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
     An optional app on the home screen puts the same readings and controls on the TV, driven by the remote, for when there is no phone or laptop to hand.
 
--   **[Managing TVs from Android](apps/android.md)**
-
-    ---
-
-    A phone app that keeps a list of TVs, shows which are online, wakes them over Wake-on-LAN, and opens each one's dashboard full screen.
-
 -   **[Menu-bar remote for macOS](apps/pane.md)**
 
     ---
 
     A macOS menu-bar companion app by the community for controlling TVs, switching inputs, adjusting settings, and running keyboard shortcuts.
+
+-   **[Remote for iPhone and iPad](apps/pane-ios.md)**
+
+    ---
+
+    An iOS and iPadOS companion app by the community for couch remote control, input switching, picture settings, and pinned shortcuts.
 
 </div>
 

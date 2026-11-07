@@ -1,5 +1,8 @@
 <p align="center"><img src="docs/logo/glasshouse-512.png" width="128" alt="Glasshouse logo: a G whose top is a roof"></p>
 
+> Glasshouse Mod 0.139.5 includes complete private settings backups and the official 0.139.0 changes, centered Home rows, a smaller clock, current weather with location search, and four Waldsee wallpapers. See the [changelog](CHANGELOG.md) and [fork releases](https://github.com/Schrotty74/glasshouse-mod/releases).
+
+
 # Glasshouse
 
 **Own the glass.** A dashboard, privacy controls and Home Assistant bridge for rooted LG webOS TVs.
@@ -34,20 +37,23 @@ Use it for remote control, app installation and removal, OLED panel care, privac
 * **Access**: Rooted via [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel). Telnet or SSH. No external dependencies or internet access needed on the TV
 * **Tested hardware**: 66 TVs across 43 series verified so far (LF632V, UH600V, UH6030, UH610V, UH635V, B6, B7, SJ80, UJ63, B8, C8, LK61, UK63, LM57, UM71, UM73, C9, CX, GX, UN73, C1, UP80, UP81, QNED82, UQ80, C2, G2, C3, UR80, B4, G3, C4, G4, UT73, UT81, C5, G5, CS, LX3, UA73, C6, NU80, QNED84). Other rooted models should work; [see full table](https://rorygallagher2024.github.io/glasshouse/tested-tvs/)
 
-**[Read the documentation](https://rorygallagher2024.github.io/glasshouse/)** for the features, installation, Home Assistant and security.
+**[Read the documentation](docs/index.md)** for the features, installation, Home Assistant and security.
 
 ---
 
-## Quick start
+## Install Glasshouse Mod
 
-1. Root the TV and install the [Homebrew Channel](https://github.com/webosbrew/webos-homebrew-channel).
-2. Clone this repository on a computer on the same network as the TV.
-3. Run `./deploy.sh <tv-ip>` from the `server/` directory.
-4. Open `http://<tv-ip>:8080/` in a browser.
+Add this repository URL in **Homebrew Channel → Settings → Repositories → Add repository**, then install **Glasshouse Mod**:
 
-That's it. The dashboard is ready to use.
+```text
+https://raw.githubusercontent.com/Schrotty74/glasshouse-mod/launcher-weather-waldsee/repo.json
+```
 
-The [installation guide](https://rorygallagher2024.github.io/glasshouse/install/) has the details and troubleshooting.
+Follow the [fork installation guide](docs/fork-installation.md) to install the published IPK or upgrade an existing official Glasshouse installation in place. Download packages from [this fork's releases](https://github.com/Schrotty74/glasshouse-mod/releases/latest). The built-in updater follows this fork after installation. Other catalog URLs and the optional [Homebrew browser mod](homebrew/catalog-browser/README.md) are listed under [Homebrew Channel catalogs](docs/homebrew-sources.md).
+
+![Glasshouse Mod on LG G5: centered Apps and Inputs, weather beside the clock and Waldsee wallpaper](docs/screenshots/glasshouse-mod-home.png)
+
+The screenshot shows the fork's layout on an LG G5. The four time-of-day wallpapers are included in the release as `waldsee-wallpapers.zip`.
 
 ---
 
@@ -55,7 +61,7 @@ The [installation guide](https://rorygallagher2024.github.io/glasshouse/install/
 
 This project is intended to give a rooted webOS TV a useful local control surface instead of requiring the owner to work around the TV's built-in menus, vendor services and cloud dependencies.
 
-1. **[A cleaner Home screen](https://rorygallagher2024.github.io/glasshouse/dashboard/home/).** A replacement Home app with full control over what displays, and no ads. This feature is currently only available on webOS 7, 9 and 10 TVs.
+1. **[A cleaner Home screen](docs/dashboard/home.md).** A replacement Home app with full control over what displays, and no ads, with a row of Internet TV channels from your own IPTV playlist. Available on webOS 4, 5, 6, 7, 9, 10 and 11; webOS 3 and later versions can try it with a setting.
 
 2. **[Controlling the TV without the cloud](https://rorygallagher2024.github.io/glasshouse/dashboard/control/).** Remote's keys, volume, inputs, power, sleep timer, comprehensive picture and sound settings, Game Optimizer, and much more.
 
@@ -79,7 +85,6 @@ This project is intended to give a rooted webOS TV a useful local control surfac
 
 12. **[Reading all of it on the TV itself](https://rorygallagher2024.github.io/glasshouse/apps/tv-app/).** An optional app on the home screen puts the same readings and controls on the TV, driven by the remote, for when there is no phone or laptop to hand.
 
-13. **[Managing TVs from Android](https://rorygallagher2024.github.io/glasshouse/apps/android/).** A phone app that keeps a list of TVs, shows which are online, wakes them over Wake-on-LAN, and opens each one's dashboard full screen.
 
 ---
 
@@ -93,21 +98,13 @@ This project is intended to give a rooted webOS TV a useful local control surfac
   <sub>Metrics and Control tabs, shown in dark and light themes.</sub>
 </p>
 
-[More screenshots](https://rorygallagher2024.github.io/glasshouse/#screenshots), including Home Assistant.
-
----
-
-## Android app
-
-[Glasshouse for Android](https://github.com/rorygallagher2024/glasshouse-android) keeps a list of TVs, shows which are online and opens each one's dashboard full screen. A TV is added by scanning any QR code on its dashboard, which carries the token as well. See the [Android app documentation](https://rorygallagher2024.github.io/glasshouse/apps/android/) for more details.
-
-It is on [Google Play](https://play.google.com/store/apps/details?id=org.glasshouse.android), for Android 10 and later. Problems and suggestions go in the app's [issues](https://github.com/rorygallagher2024/glasshouse-android/issues).
+[More screenshots](docs/index.md#screenshots), including Home Assistant.
 
 ---
 
 ## Documentation
 
-* [Installing](https://rorygallagher2024.github.io/glasshouse/install/) and [tested TVs](https://rorygallagher2024.github.io/glasshouse/tested-tvs/)
+* [Installing this fork](docs/fork-installation.md) and [tested TVs](https://rorygallagher2024.github.io/glasshouse/tested-tvs/)
 * [The dashboard](https://rorygallagher2024.github.io/glasshouse/dashboard/), tab by tab
 * [Home Assistant](https://rorygallagher2024.github.io/glasshouse/HOME-ASSISTANT/), [entities](https://rorygallagher2024.github.io/glasshouse/HOME-ASSISTANT-ENTITIES/) and [remote button events](https://rorygallagher2024.github.io/glasshouse/HOME-ASSISTANT-REMOTE-BUTTONS/)
 * [Updating and uninstalling](https://rorygallagher2024.github.io/glasshouse/managing/)

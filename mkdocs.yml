@@ -35,7 +35,9 @@ theme:
 nav:
   - Home: index.md
   - Getting started:
-      - Installing: install.md
+      - Installing this fork: fork-installation.md
+      - Homebrew Channel catalogs: homebrew-sources.md
+      - Installing with a computer: install.md
       - Tested TVs: tested-tvs.md
       - Updating and uninstalling: managing.md
   - The dashboard:
@@ -56,8 +58,8 @@ nav:
       - Tools: dashboard/tools.md
   - Glasshouse apps:
       - The TV app: apps/tv-app.md
-      - Android app: apps/android.md
       - Pane (macOS): apps/pane.md
+      - Pane (iOS): apps/pane-ios.md
   - Smart Home & Lighting:
       - Home Assistant:
           - Overview: HOME-ASSISTANT.md
@@ -93,6 +95,7 @@ nav:
 
 # Kept until the Homebrew Channel listing is live (webosbrew/apps-repo#261).
 not_in_nav: |
+  /apps/android.md
   /install-homebrew-channel.md
   /dashboard/tv-app.md
 

@@ -6,6 +6,12 @@ Branch, push the branch, open a PR. This applies to "commit and push" too.
 Push to an existing PR branch rather than opening a second one for the same
 line of work. Merging is the maintainer's call.
 
+## Release TV updates
+
+Ship a verified stable release with an IPK and checksum manifest for fixes
+that need to reach the TV through Server → Check now → Install. Confirm the
+published assets before reporting that the update is available.
+
 ## Draft until ready
 
 Keep a PR in draft while any rule in docs/CONTRIBUTING.md's "Rules for a pull
@@ -83,6 +89,8 @@ handed to another through init() is typed with
 `/** @type {typeof import('./x')} */`, so check-module-calls.py follows it.
 
 # Working with a TV
+
+Keep TV work in the background. Do not launch apps in the foreground or switch HDMI inputs for edits, checks or screenshots. Use SSH and background inspection; if a check cannot run that way, report the limitation without interrupting the active input.
 
 `scripts/tv.sh <address> version|app|luna|log|capture` covers the usual
 look at a rooted TV over SSH; run it with no arguments for its usage.
