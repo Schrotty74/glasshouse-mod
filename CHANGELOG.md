@@ -1,5 +1,9 @@
 # Glasshouse Mod changelog
 
+## 0.139.5 — 2026-11-07
+
+- Glasshouse Home uses vector weather icons so the symbol displays independently of the TV or theme font.
+
 ## 0.139.4 — 2026-11-07
 
 - Import Hearth themes in the Home dashboard and select stored ZIPs with the TV remote. Themes can supply colours, fonts, wallpapers, icon styles and app presentation.

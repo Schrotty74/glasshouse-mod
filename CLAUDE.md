@@ -6,6 +6,12 @@ Branch, push the branch, open a PR. This applies to "commit and push" too.
 Push to an existing PR branch rather than opening a second one for the same
 line of work. Merging is the maintainer's call.
 
+## Release TV updates
+
+Ship a verified stable release with an IPK and checksum manifest for fixes
+that need to reach the TV through Server → Check now → Install. Confirm the
+published assets before reporting that the update is available.
+
 ## Draft until ready
 
 Keep a PR in draft while any rule in docs/CONTRIBUTING.md's "Rules for a pull
