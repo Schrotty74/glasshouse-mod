@@ -139,8 +139,9 @@ html.resting #wall .layer{-webkit-animation-play-state:paused;animation-play-sta
 .alternative #clock{font-size:88px;line-height:1;letter-spacing:-2px}
 #clock{white-space:nowrap}
 #local-weather-badge:not([hidden]){display:inline-flex;-webkit-align-items:center;align-items:center;margin-left:22px;vertical-align:middle;font:28px/1 sans-serif;letter-spacing:0;color:#ded9cf}
-#local-weather-icon{font:72px/1 sans-serif;margin-right:10px}
-.alternative #local-weather-icon{font-size:56px}
+#local-weather-icon{display:inline-block;width:64px;height:64px;margin-right:10px}
+#local-weather-icon svg{display:block;width:100%;height:100%}
+.alternative #local-weather-icon{width:48px;height:48px}
 .alternative #date{margin-top:8px;font-size:23px}
 .alternative #source{padding-left:22px}
 .alternative #plate{-webkit-order:2;order:2;margin:0 56px 0 0}
@@ -4766,14 +4767,29 @@ body.no-slide #recents,body.no-slide #finder,body.no-slide #folder,body.no-slide
   var badge = document.getElementById('local-weather-badge');
   var icon = document.getElementById('local-weather-icon');
   var busy = false;
+  // The TV and imported fonts can lack weather glyphs.
   function symbol(code, day) {
-    if (code === 0) return day ? '☀' : '☾';
-    if (code <= 2) return day ? '⛅' : '☁';
-    if (code === 3) return '☁';
-    if (code <= 48) return '≋';
-    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return '❄';
-    if (code >= 95) return 'ϟ';
-    return '☂';
+    var cloud = '<path d="M8 21a4.5 4.5 0 0 1-.5-9 7 7 0 0 1 13.4 1 4.1 4.1 0 1 1 2.1 8Z"/>';
+    var shape;
+    if (code === 0) {
+      shape = day
+        ? '<circle cx="16" cy="16" r="6"/><path d="M16 3v4m0 18v4M3 16h4m18 0h4M7 7l3 3m12 12 3 3M25 7l-3 3M10 22l-3 3"/>'
+        : '<path d="M26 21A11 11 0 0 1 11 6a11 11 0 1 0 15 15Z"/>';
+    } else if (code <= 2 && day) {
+      shape = '<path d="M9 9a5 5 0 0 1 8-2M11 3v2M4 6l2 2M3 12h2M18 4l-2 2"/>' + cloud;
+    } else if (code <= 3) {
+      shape = cloud;
+    } else if (code <= 48) {
+      shape = '<path d="M5 10h22M8 16h18M4 22h23"/>';
+    } else if ((code >= 71 && code <= 77) || code === 85 || code === 86) {
+      shape = cloud + '<path d="M12 24v5m-2-4 4 3m0-3-4 3m10-4v5m-2-4 4 3m0-3-4 3"/>';
+    } else if (code >= 95) {
+      shape = cloud + '<path d="m17 21-3 5h4l-3 4"/>';
+    } else {
+      shape = cloud + '<path d="m11 24-2 4m8-4-2 4m8-4-2 4"/>';
+    }
+    return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" fill="none" stroke="currentColor" ' +
+      'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" focusable="false">' + shape + '</svg>';
   }
   function refresh() {
     if (busy) return;
@@ -4787,8 +4803,8 @@ body.no-slide #recents,body.no-slide #finder,body.no-slide #folder,body.no-slide
       try { result = JSON.parse(xhr.responseText); } catch (e) {}
       var w = result && result.ok && result.weather;
       badge.hidden = !w;
-      if (w) icon.textContent = symbol(w.code,w.day);
       if (w) {
+        icon.innerHTML = symbol(w.code, w.day);
         document.getElementById('local-weather-temp').textContent = w.temperature + ' °C';
         badge.title = w.name;
       }

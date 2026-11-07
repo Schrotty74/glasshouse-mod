@@ -450,7 +450,7 @@ The list is kept as `excludedRecents` in `/var/lib/tvweb/home.json`, a list of a
 
 In this fork, the Apps and Inputs rows are centered when all their tiles fit. Longer rows start at the left and scroll as usual. The clock is smaller and sits lower on the left. Last watched is aligned to the right.
 
-In the browser dashboard, open **Home → Weather**. Search by town name or select Austria, Germany or Switzerland to search by postal code. Choose the matching town from the results. Glasshouse Home shows a larger weather symbol and the temperature in Celsius beside the clock. **Hide weather** clears the selection.
+In the browser dashboard, open **Home → Weather**. Search by town name or select Austria, Germany or Switzerland to search by postal code. Choose the matching town from the results. Glasshouse Home shows a vector weather icon and the temperature in Celsius beside the clock. The icon renders independently of the selected font. **Hide weather** clears the selection.
 
 Open-Meteo handles town searches and supplies current conditions. Zippopotam.us handles postal-code searches. The dashboard sends the search term to the relevant provider. After a place is selected, the TV sends its coordinates to Open-Meteo and reuses each successful response for an hour.
 
