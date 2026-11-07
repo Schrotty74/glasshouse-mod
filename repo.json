@@ -11,21 +11,21 @@
       "title": "Glasshouse Mod",
       "shortDescription": "Glasshouse with weather, centered Home rows and four Waldsee wallpapers for rooted LG TVs.",
       "iconUri": "https://raw.githubusercontent.com/rorygallagher2024/glasshouse/main/server/assets/dashboard-app/assets/icon130.png",
-      "manifestUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.3/io.github.rorygallagher2024.lg-webos-dashboard.manifest.json",
+      "manifestUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.4/io.github.rorygallagher2024.lg-webos-dashboard.manifest.json",
       "manifest": {
         "id": "io.github.rorygallagher2024.lg-webos-dashboard",
-        "version": "0.139.3",
+        "version": "0.139.4",
         "type": "web",
         "title": "Glasshouse Mod",
         "appDescription": "Glasshouse with weather, centered Home rows and four Waldsee wallpapers for rooted LG TVs.",
         "iconUri": "https://raw.githubusercontent.com/rorygallagher2024/glasshouse/main/server/assets/dashboard-app/assets/icon130.png",
         "sourceUrl": "https://github.com/Schrotty74/glasshouse-mod",
         "rootRequired": true,
-        "ipkUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.3/io.github.rorygallagher2024.lg-webos-dashboard_0.139.3_all.ipk",
+        "ipkUrl": "https://github.com/Schrotty74/glasshouse-mod/releases/download/v0.139.4/io.github.rorygallagher2024.lg-webos-dashboard_0.139.4_all.ipk",
         "ipkHash": {
-          "sha256": "7345e15b7659bca45374129db3529bb0bd03abb41587ec4893d68610e782539e"
+          "sha256": "562c37f7dd8ed48b6a6e2a108359be73699b4a29b53bb29d9af097cacbadd862"
         },
-        "ipkSize": 2088306
+        "ipkSize": 2101620
       }
     }
   ]
