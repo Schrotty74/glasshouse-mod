@@ -10,6 +10,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   package:
@@ -41,6 +42,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "$GITHUB_REF_NAME" dist/*.ipk dist/*.manifest.json dist/repo.json --clobber
+
+      - name: update the release pull request title
+        if: ${{ !github.event.release.prerelease }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          CATALOG_BRANCH: launcher-weather-waldsee
+        run: |
+          latest=$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)
+          [ "$latest" = "$RELEASE_TAG" ] || exit 0
+          endpoint="repos/$GITHUB_REPOSITORY/pulls/1"
+          pr_branch=$(gh api "$endpoint" --jq 'select(.state == "open") | .head.ref')
+          [ "$pr_branch" = "$CATALOG_BRANCH" ] || exit 0
+          title="Glasshouse Mod ${RELEASE_TAG#v}: Hearth themes, backups, weather and Waldsee wallpapers"
+          current=$(gh api "$endpoint" --jq .title)
+          [ "$current" != "$title" ] || exit 0
+          gh api --method PATCH "$endpoint" -f "title=$title" --silent
 
       - name: publish the direct catalog URL
         if: ${{ !github.event.release.prerelease }}
