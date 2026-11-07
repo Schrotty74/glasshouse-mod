@@ -91,7 +91,8 @@ jobs:
               print('Catalog already current.')
               raise SystemExit(0)
           payload = {
-              'message': 'Update Homebrew catalog for ' + tag,
+              # The release code was already checked. This bot commit only changes repo.json.
+              'message': 'Update Homebrew catalog for ' + tag + ' [skip ci]',
               'branch': branch, 'sha': current['sha'],
               'content': base64.b64encode(data).decode('ascii'),
           }
