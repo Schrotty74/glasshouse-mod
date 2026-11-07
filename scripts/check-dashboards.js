@@ -1346,8 +1346,11 @@ async function visitHomeEditor(browser, base, problems) {
     if (await appRows.first().locator('[translate="no"]').textContent() !== 'One') problems.push('Home editor: refused move remained visible');
     pendingRestore = true;
     await page.reload();
-    await page.waitForSelector('#home-switch:not(:disabled)');
-    if (!await page.locator('#home-switch').textContent().then(t => /Retry/.test(t))) problems.push('Home editor: failed restoration has no retry action');
+    // The initial button is enabled before the Home status has arrived.
+    await page.waitForFunction(() => {
+      const button = document.querySelector('#home-switch');
+      return button && !button.disabled && button.textContent === 'Retry restoring LG Home';
+    }, null, { timeout: 10000 });
     pendingRestore = false; portChanged = true;
     await page.reload();
     await page.waitForTimeout(200);

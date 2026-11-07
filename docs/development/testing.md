@@ -464,3 +464,5 @@ The Node 0.10 CI run exposed a legacy JSON parser behavior: `__proto__` becomes 
 TV feedback, 2026-11-06 (user-reported, LG G5): the update restarted the server successfully. The exported backup was inspected and contained wallpaper entries and Homebrew catalogs. The same backup was restored without a displayed error; the user reported that it appeared to work. A separate change-and-restore comparison of every setting was not reported. IPTV was not configured and remains untested on this TV.
 
 `test-home-theme.js` covers Hearth ZIP and manifest validation, bounded inflate, active theme persistence, backup and restore of assets, and older backups without a theme entry. Its HTTP fixture imports and removes a theme through the dashboard routes and checks that the regular Home layout stays intact.
+
+The browser recovery test waits for the Home status to render the enabled **Retry restoring LG Home** button before checking that recovery is available.
