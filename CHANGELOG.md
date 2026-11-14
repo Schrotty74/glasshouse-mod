@@ -1,5 +1,11 @@
 # Glasshouse Mod changelog
 
+## 0.149.1
+
+- Merge Glasshouse 0.149.0, including its new launcher options, Inputs and Remote tabs, wallpaper animation and shuffle, and Home Assistant weather.
+- Keep the Mod's local weather and Hearth themes. When local weather is available, Home shows it beside the clock. A Hearth wallpaper takes precedence over the selected background while its theme is active.
+- Include the upstream settings sections and shuffled wallpaper files in the Mod's private backups. Existing backup formats are still accepted.
+
 ## 0.139.5 — 2026-11-07
 
 - Glasshouse Home uses vector weather icons so the symbol displays independently of the TV or theme font.

@@ -24,13 +24,31 @@ The top of every tab shows what the TV is doing: its state (On, Screen off, Scre
 
     ---
 
-    Install, uninstall, background services and remote button remapping.
+    Install, uninstall and background services.
+
+-   **[Inputs](inputs.md)**
+
+    ---
+
+    Which HDMI inputs are offered, the input bar and the No Signal screen.
+
+-   **[Remote](remote.md)**
+
+    ---
+
+    What the remote's buttons and held number keys do.
 
 -   **[Home](home.md)**
 
     ---
 
     Glasshouse Home, a clean home screen in place of LG's, and Home customisation: Open Home at power-on, LG's Home screen layout and hidden system apps.
+
+-   **[Ambient Light](ambient-light.md)**
+
+    ---
+
+    PicCap capture and Hue Sync, with streaming switches and all sync settings.
 
 -   **[Privacy](privacy.md)**
 

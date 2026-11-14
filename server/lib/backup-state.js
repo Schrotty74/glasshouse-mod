@@ -16,6 +16,8 @@ var SLOTS = ['morning', 'afternoon', 'evening', 'night'];
 ['home-wallpaper-uploads', 'home-wallpaper-sets/landscape', 'home-wallpaper-sets/abstract'].forEach(function (dir) {
   SLOTS.forEach(function (slot) { FILES.push(dir + '/' + slot + '.jpg'); });
 });
+var SHUFFLE_DIR = 'home-wallpaper-shuffle';
+var SHUFFLE_PICTURE = /^home-wallpaper-shuffle\/[0-9a-z]{8,24}\.jpg$/;
 var MAX_FILE = 5 * 1024 * 1024;
 
 
@@ -91,7 +93,7 @@ function validate(name, buf) {
        typeof value.label !== 'string' || value.label.length > 260 || typeof value.lat !== 'number' ||
        !isFinite(value.lat) || Math.abs(value.lat) > 90 || typeof value.lon !== 'number' ||
        !isFinite(value.lon) || Math.abs(value.lon) > 180)) throw new Error('Invalid weather location');
-  if (name === 'home-wallpaper.json' && (!value || ['black', 'own', 'landscape', 'abstract'].indexOf(value.choice) < 0)) {
+  if (name === 'home-wallpaper.json' && (!value || ['black', 'own', 'landscape', 'abstract', 'shuffle'].indexOf(value.choice) < 0)) {
     throw new Error('Invalid wallpaper choice');
   }
   if (name === 'iptv/config.json') {
@@ -112,7 +114,15 @@ function validate(name, buf) {
 }
 function create() {
   var files = [], total = 0;
-  FILES.forEach(function (name) {
+  var names = FILES.slice();
+  try {
+    var pictures = fs.readdirSync(safePath(SHUFFLE_DIR)).map(function (name) {
+      return SHUFFLE_DIR + '/' + name;
+    }).filter(function (name) { return SHUFFLE_PICTURE.test(name); });
+    if (pictures.length > wallpapers.MAX_SHUFFLE) throw new Error('Too many shuffled wallpapers');
+    names = names.concat(pictures.sort());
+  } catch (e) { if (e.code !== 'ENOENT') throw e; }
+  names.forEach(function (name) {
     var file;
     try { file = safePath(name); if (!fs.existsSync(file)) return; }
     catch (e) { if (e.code === 'ENOENT') return; throw e; }
@@ -138,12 +148,14 @@ function create() {
   return { version: 1, files: files };
 }
 function prepare(snapshot) {
-  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.files) || snapshot.files.length > FILES.length + 1) {
+  if (!snapshot || snapshot.version !== 1 || !Array.isArray(snapshot.files) || snapshot.files.length > FILES.length + wallpapers.MAX_SHUFFLE + 1) {
     throw new Error('Invalid settings snapshot');
   }
-  var seen = {}, total = 0;
+  var seen = {}, total = 0, pictures = 0;
   var entries = snapshot.files.map(function (entry) {
-    if (!entry || (FILES.indexOf(entry.name) < 0 && entry.name !== homeTheme.STATE_FILE) || seen[entry.name] || typeof entry.data !== 'string' ||
+    var picture = entry && typeof entry.name === 'string' && SHUFFLE_PICTURE.test(entry.name);
+    if (picture && ++pictures > wallpapers.MAX_SHUFFLE) throw new Error('Too many shuffled wallpapers');
+    if (!entry || (!picture && FILES.indexOf(entry.name) < 0 && entry.name !== homeTheme.STATE_FILE) || seen[entry.name] || typeof entry.data !== 'string' ||
         entry.data.length > Math.ceil(limitFor(entry.name) / 3) * 4 || (!/^[A-Za-z0-9+/]*={0,2}$/.test(entry.data) || entry.data.length % 4 !== 0)) {
       throw new Error('Invalid backup file');
     }

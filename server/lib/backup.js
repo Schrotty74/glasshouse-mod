@@ -6,6 +6,8 @@
  * owner state. Version 1 retains its portable, allowlisted configuration
  * semantics. Downloads can contain credentials and must be kept private.
  * Executable-client paths are archived but cannot select a new executable.
+ * The portable settings include the parts in backup-parts.js. LG picture and
+ * game settings are kept per input and are outside both backup formats.
  *
  * A restore sets only what this TV has and offers, one setting at a time
  * through lgsettings.set, and says what it skipped and why.
@@ -30,7 +32,9 @@ var stateEnabled = false;
 var beforeRestore = null;
 var commitState = null;
 var readSettings = null;
-var SECTIONS = ['promotions', 'sound', 'devices', 'hdmi'];
+var SECTIONS = ['promotions', 'uploads', 'sound', 'devices', 'hdmi'];
+// lgsettings.js's other sections, kept per input, genre or picture mode.
+var SECTIONS_NOT_CARRIED = ['game', 'picture'];
 
 /*
  * The Glasshouse settings a backup carries, each with a check of the value it
@@ -85,6 +89,8 @@ var keepApp = function (id) { return !!id; };
 var pendingFile = '/var/lib/tvweb/restore-apps.json';
 /** @type {typeof import('./home')} */
 var home = null;
+/** @type {typeof import('./backup-parts')} */
+var parts = null;
 
 var DEVELOPER_APPS = '/media/developer/apps/';
 
@@ -190,26 +196,92 @@ function create(cb) {
     if (!res || res.ok === false) return cb({ ok: false, error: 'LG settings could not be read' });
     var lg = {};
     ((res && res.rows) || []).forEach(function (r) { lg[r.id] = rowSetting(r); });
-    developerApps(function (have) {
-      if (luna && have === null) return cb({ ok: false, error: 'Installed apps could not be read' });
-      var apps = Object.keys(have || {}).sort().map(function (id) {
-        return { id: id, title: have[id].title, version: have[id].version };
-      });
-      var from = about() || {};
-      cb({
-        format: FORMAT,
-        version: VERSION,
-        created: new Date().toISOString(),
-        from: { model: from.model || null, glasshouse: from.version || null },
-        lg: lg,
-        glasshouse: backupGlasshouse(),
-        home: home ? home.layout() : undefined,
-        apps: apps,
-        state: snapshot,
-        configuration: configuration
+    readParts(function (settings) {
+      developerApps(function (have) {
+        if (luna && have === null) return cb({ ok: false, error: 'Installed apps could not be read' });
+        var apps = Object.keys(have || {}).sort().map(function (id) {
+          return { id: id, title: have[id].title, version: have[id].version };
+        });
+        var from = about() || {};
+        cb({
+          format: FORMAT,
+          version: VERSION,
+          created: new Date().toISOString(),
+          from: { model: from.model || null, glasshouse: from.version || null },
+          lg: lg,
+          settings: settings,
+          glasshouse: backupGlasshouse(),
+          home: home ? home.layout() : undefined,
+          apps: apps,
+          state: snapshot,
+          configuration: configuration
+        });
       });
     });
   });
+}
+
+// One part's value on this TV, or undefined where it has none or could not say.
+function readPart(part, cb) {
+  var called = false;
+  var once = function (v) { if (!called) { called = true; cb(v); } };
+  try {
+    part.read(once);
+  } catch (e) {
+    console.log('backup: could not read ' + part.id + ': ' + e.message);
+    once(undefined);
+  }
+}
+
+// backup-parts.js's settings as { id: value }, those this TV has.
+function readParts(cb) {
+  if (!parts) return cb(undefined);
+  var out = {};
+  var list = parts.PARTS;
+  (function next(i) {
+    if (i >= list.length) return cb(out);
+    readPart(list[i], function (v) {
+      if (v !== undefined) out[list[i].id] = v;
+      next(i + 1);
+    });
+  })(0);
+}
+
+/*
+ * Restores backup-parts.js's settings into the same result as LG's rows: a
+ * part this TV lacks, or a value it does not offer, is skipped and named.
+ */
+function restoreParts(wanted, result, cb) {
+  if (!parts || !wanted || typeof wanted !== 'object') return cb();
+  var byId = {};
+  parts.PARTS.forEach(function (p) { byId[p.id] = p; });
+  var ids = Object.keys(wanted);
+  (function next(i) {
+    if (i >= ids.length) return cb();
+    var id = ids[i];
+    var part = byId[id];
+    var value = wanted[id];
+    var after = function () { next(i + 1); };
+    if (!part) { result.skipped.push({ id: id, reason: 'absent' }); return after(); }
+    if (!part.valid(value)) { result.skipped.push({ id: id, reason: 'value' }); return after(); }
+    readPart(part, function (current) {
+      if (current === undefined) { result.skipped.push({ id: id, reason: 'absent' }); return after(); }
+      var target = part.merge ? part.merge(value, current) : value;
+      if (same(current, target)) { result.unchanged++; return after(); }
+      var reason = part.refuse ? part.refuse(target, current) : null;
+      if (reason) { result.skipped.push({ id: id, reason: reason }); return after(); }
+      try {
+        part.write(target, function (r) {
+          if (r && r.ok) result.applied.push(id);
+          else result.failed.push({ id: id, error: (r && r.error) || 'refused' });
+          after();
+        }, current);
+      } catch (e) {
+        result.failed.push({ id: id, error: e.message });
+        after();
+      }
+    });
+  })(0);
 }
 
 function same(a, b) {
@@ -270,36 +342,38 @@ function restore(backup, cb) {
     var i = 0;
     (function next() {
       if (i >= ids.length) {
-        return restoreHome(backup.home, function (homeRestored) {
-          restoreGlasshouse(backup.glasshouse, result, function (r) {
-            r.home = !!(homeRestored && homeRestored.ok);
-            if (homeRestored && !homeRestored.ok) {
-              r.ok = false;
-              r.error = msg('srv.home.backupFailed', 'Other settings may have been restored, but the Home layout could not be restored: {error}',
-                { error: homeRestored.error || 'unknown error' });
-            }
-            if (entries && entries.length && r.ok) {
-              try {
-                if (beforeRestore) {
-                  var refusal = beforeRestore();
-                  if (refusal) throw new Error(refusal);
-                }
-                r.restart = true;
-                if (commitState) commitState();
-                r.files = stateBackup.restore(entries);
-                r.restart = r.restart || entries.length > 0;
-              } catch (e) { r.ok = false; r.error = 'Extended settings restore failed: ' + e.message; }
-            }
-            // The restored catalogs must be active before classifying missing apps.
-            var restoredRepos = complete && complete.apps && complete.apps.repos;
-            if (!restoredRepos && r.glasshouse.indexOf('apps.repos') !== -1) restoredRepos = backup.glasshouse.apps.repos;
-            if (r.ok && restoredRepos) {
-              config.apps = config.apps || {};
-              config.apps.repos = restoredRepos;
-              if (repo && repo.forget) repo.forget();
-            }
-            planApps(backup.apps, function (apps) { r.apps = apps; cb(r); });
-          }, complete);
+        return restoreParts(backup.settings, result, function () {
+          return restoreHome(backup.home, function (homeRestored) {
+            restoreGlasshouse(backup.glasshouse, result, function (r) {
+              r.home = !!(homeRestored && homeRestored.ok);
+              if (homeRestored && !homeRestored.ok) {
+                r.ok = false;
+                r.error = msg('srv.home.backupFailed', 'Other settings may have been restored, but the Home layout could not be restored: {error}',
+                  { error: homeRestored.error || 'unknown error' });
+              }
+              if (entries && entries.length && r.ok) {
+                try {
+                  if (beforeRestore) {
+                    var refusal = beforeRestore();
+                    if (refusal) throw new Error(refusal);
+                  }
+                  r.restart = true;
+                  if (commitState) commitState();
+                  r.files = stateBackup.restore(entries);
+                  r.restart = r.restart || entries.length > 0;
+                } catch (e) { r.ok = false; r.error = 'Extended settings restore failed: ' + e.message; }
+              }
+              // The restored catalogs must be active before classifying missing apps.
+              var restoredRepos = complete && complete.apps && complete.apps.repos;
+              if (!restoredRepos && r.glasshouse.indexOf('apps.repos') !== -1) restoredRepos = backup.glasshouse.apps.repos;
+              if (r.ok && restoredRepos) {
+                config.apps = config.apps || {};
+                config.apps.repos = restoredRepos;
+                if (repo && repo.forget) repo.forget();
+              }
+              planApps(backup.apps, function (apps) { r.apps = apps; cb(r); });
+            }, complete);
+          });
         });
       }
       var id = ids[i++];
@@ -496,6 +570,7 @@ function dailyStatus() {
  * @param {string} [opts.dailyDir] where daily backups are kept, for tests
  * @param {function(): number} [opts.now] wall clock, for tests
  * @param {typeof import('./home')} [opts.home] Glasshouse Home, whose layout a backup carries
+ * @param {typeof import('./backup-parts')} [opts.parts] the settings carried beyond LG's rows
  */
 function init(opts) {
   stateEnabled = !!opts.stateDir;
@@ -510,6 +585,7 @@ function init(opts) {
   luna = opts.luna || null;
   repo = opts.repo || null;
   home = opts.home || null;
+  parts = opts.parts || null;
   if (opts.keepApp) keepApp = opts.keepApp;
   if (opts.pendingFile) pendingFile = opts.pendingFile;
   if (opts.dailyDir) dailyDir = opts.dailyDir;
@@ -520,6 +596,7 @@ module.exports = {
   MAX_BYTES: stateBackup.MAX_BYTES,
   FORMAT: FORMAT,
   SECTIONS: SECTIONS,
+  SECTIONS_NOT_CARRIED: SECTIONS_NOT_CARRIED,
   init: init,
   create: create,
   restore: restore,

@@ -103,7 +103,7 @@ On the computer, open `http://TV_IP:8080/`. This remains the TV's address; the f
 
 - Under **Home**, choose **Use Glasshouse Home** and confirm.
 - Under **Home → Weather**, search for a place and select the matching result. Successful weather responses are cached for one hour.
-- Download and extract `waldsee-wallpapers.zip` from the release. Under **Home → Wallpaper → Your own**, assign the files to their time-of-day slots: `morning.png`, `afternoon.png`, `evening.png` and `night.png`.
+- Download and extract `waldsee-wallpapers.zip` from the release. Under **Home → Background → Pictures → Your own**, assign the files to their time-of-day slots: `morning.png`, `afternoon.png`, `evening.png` and `night.png`.
 
 Uploading selects the pictures. An existing wallpaper selection is retained during an upgrade.
 

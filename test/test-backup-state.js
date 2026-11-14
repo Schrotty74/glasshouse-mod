@@ -24,6 +24,15 @@ put('local-weather-place.json', 'null');
 state.restore(state.prepare(JSON.parse(JSON.stringify(snapshot))));
 assert.strictEqual(fs.readFileSync(path.join(dir, 'local-weather-place.json'), 'utf8'), place);
 assert.deepEqual(fs.readFileSync(path.join(dir, 'home-wallpaper-uploads/morning.jpg')), jpeg);
+put('home-wallpaper.json', '{"choice":"shuffle"}');
+put('home-wallpaper-shuffle/abcd1234.jpg', jpeg);
+var shuffle = state.create();
+fs.unlinkSync(path.join(dir, 'home-wallpaper-shuffle/abcd1234.jpg'));
+put('home-wallpaper.json', '{"choice":"own"}');
+state.restore(state.prepare(shuffle));
+assert.strictEqual(JSON.parse(fs.readFileSync(path.join(dir, 'home-wallpaper.json'), 'utf8')).choice, 'shuffle');
+assert.deepEqual(fs.readFileSync(path.join(dir, 'home-wallpaper-shuffle/abcd1234.jpg')), jpeg);
+
 var broken = JSON.parse(JSON.stringify(snapshot));
 broken.files[0].data = 'e30=';
 assert.throws(function () { state.prepare(broken); }, /checksum/);

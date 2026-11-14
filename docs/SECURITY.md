@@ -73,6 +73,13 @@ it before exposing it more widely.
   therefore answer only to an IP address, `localhost` or a name listed in
   `apps.hosts` in `config.json`, which is file-only. A name such as `lgtv.local`
   has to be added there to install from it.
+- **A custom launcher runs as the TV's Home app.** An uploaded launcher's page
+  runs in the app that holds LG's Home's place, which can call the TV's own
+  services, so uploading one is held to the rule for installing a package from
+  a file (`apps.sideload`, a token, or the TV itself) and to the Host check
+  above. A launcher given as a web address is shown in a frame of Glasshouse's
+  page and runs as its own site, without that access. Where a token is set,
+  the launcher's files are served only to the TV itself or with the token.
 - **`apps.repos` adds trust.** Each extra catalog listed there can offer
   packages for installation, with their hashes. Its packages are not treated
   as vetted: root for them is confirmed service by service, as for a URL, and
@@ -214,6 +221,16 @@ broker credentials live in `config.json` **on the TV**, and a rooted webOS set
 has an unauthenticated root shell on port 23 &mdash; so treat anything stored
 there as readable by anyone on your network. `tvweb` tightens the file to `0600`
 at startup, but that is mitigation, not a fix.
+
+The Home Assistant API token, set on the **HA & MQTT** tab for the Home
+Assistant screen savers, is kept there too, as plain text, like the broker
+password. Encrypting it would not help: the server has to use it, so the key
+would sit on the same TV. It never leaves the TV through Glasshouse: the
+dashboard only reports whether one is set, backups leave it out, the screen
+savers' QML files never contain it, and it is sent only to the saved Home
+Assistant address. A long-lived token can do whatever its Home Assistant user
+can, so create it under a user made for the TV rather than an administrator,
+and revoke it from that user's profile page if the TV is ever compromised.
 
 The question that matters is not whether the bridge is authenticated (it is),
 but **what that credential is allowed to do**. Reuse your main Home Assistant

@@ -44,8 +44,11 @@ nav:
       - dashboard/index.md
       - Control: dashboard/control.md
       - Metrics: dashboard/metrics.md
-      - Apps: dashboard/apps.md
       - Home: dashboard/home.md
+      - Inputs: dashboard/inputs.md
+      - Remote: dashboard/remote.md
+      - Apps: dashboard/apps.md
+      - Ambient Light: dashboard/ambient-light.md
       - Privacy: dashboard/privacy.md
       - OLED Care: dashboard/oled-care.md
       - Game: dashboard/game.md
@@ -65,7 +68,7 @@ nav:
           - Overview: HOME-ASSISTANT.md
           - Entities: HOME-ASSISTANT-ENTITIES.md
           - Remote button events: HOME-ASSISTANT-REMOTE-BUTTONS.md
-      - Ambient light (PicCap): piccap.md
+      - Ambient Light (PicCap): piccap.md
       - Hue Sync: huesync.md
   - Advanced & Administration:
       - Security: SECURITY.md
@@ -91,6 +94,7 @@ nav:
       - TV research: development/TV-RESEARCH.md
       - Screen saver design: development/SCREENSAVER-DESIGN.md
       - Writing a screen saver: development/WRITING-SCREENSAVERS.md
+      - Writing a launcher: development/WRITING-LAUNCHERS.md
       - Translating the dashboards: STRINGS.md
 
 # Kept until the Homebrew Channel listing is live (webosbrew/apps-repo#261).
