@@ -121,33 +121,22 @@ test("they are carried over when it is, so this table does not undo it", functio
 
 var AMAZOFF = ['127.0.0.1 cloudfront.xp-assets.aiv-cdn.net', '::1 cloudfront.xp-assets.aiv-cdn.net'];
 
-test('local lookups name every address on the TV\'s networks as itself, but not the TV', function () {
-  var LOCAL = '/var/lib/tvweb/local_lookups';
-  privacy._setInterfaces(function () {
-    return {
-      lo: [{ family: 'IPv4', address: '127.0.0.1', netmask: '255.0.0.0', internal: true }],
-      wlan0: [{ family: 'IPv4', address: '192.168.2.128', netmask: '255.255.255.0', internal: false },
-              { family: 'IPv6', address: 'fe80::1', netmask: 'ffff:ffff:ffff:ffff::', internal: false }],
-      eth1: [{ family: 4, address: '10.0.0.9', netmask: '255.255.0.0', internal: false }],
-      wan: [{ family: 'IPv4', address: '81.2.3.4', netmask: '255.255.255.0', internal: false }]
-    };
-  });
+test('a table left with Answer device scans on the TV is rebuilt without its lines, and its flag removed', function () {
+  var LOCAL = '/var/lib/tvweb/local_lookups', TABLE = '/var/lib/tvweb/adblock_hosts';
+  var saved = mockEnv.files['/etc/hosts'];
+  var left = privacy.adBlockHostsTable('ads') + '\n# The local network\n192.168.2.1\t192.168.2.1\n192.168.2.2\t192.168.2.2\n192.168.2.5\tnas\n';
+  mockEnv.files['/etc/hosts'] = left;
+  mockEnv.files[TABLE] = left;
+  mockEnv.files[LOCAL] = '';
   try {
-    assert.strictEqual(privacy.adBlockHostsTable('ads').indexOf('192.168.2.1\t'), -1, 'nothing while it is off');
-    mockEnv.files[LOCAL] = '';
-    var addrs = privacy.localLookupAddresses();
-    assert.strictEqual(addrs.filter(function (a) { return /^192\.168\.2\./.test(a); }).length, 253, '1 to 254, less the TV');
-    assert.strictEqual(addrs.indexOf('192.168.2.128'), -1, 'the server looks up the TV\'s own name');
-    assert.ok(addrs.indexOf('10.0.0.1') !== -1 && addrs.indexOf('10.0.0.254') !== -1, 'a wider network covers the /24 around the TV');
-    assert.strictEqual(addrs.indexOf('10.0.1.1'), -1);
-    assert.ok(!addrs.some(function (a) { return /^(81|127)\./.test(a); }), 'public and loopback addresses are left alone');
-    var table = privacy.adBlockHostsTable('off');
-    assert.ok(table.indexOf('\n192.168.2.1\t192.168.2.1\n') !== -1);
-    assert.deepEqual(privacy.foreignHostsLines(table + '192.168.2.5\tnas\n'), ['192.168.2.5\tnas'],
-      'its own lines are not carried over as another tool\'s, a real name is');
+    privacy.checkBootAdBlock(false);
+    assert.strictEqual(mockEnv.files[LOCAL], undefined, 'the flag is gone');
+    assert.strictEqual(mockEnv.files[TABLE].indexOf('192.168.2.1\t192.168.2.1'), -1, 'its lines are gone');
+    assert.ok(mockEnv.files[TABLE].indexOf('192.168.2.5\tnas') !== -1, 'a real name is kept');
   } finally {
     delete mockEnv.files[LOCAL];
-    privacy._setInterfaces(function () { return {}; });
+    if (saved === undefined) delete mockEnv.files['/etc/hosts'];
+    else mockEnv.files['/etc/hosts'] = saved;
   }
 });
 
@@ -156,6 +145,162 @@ test("other tools' lines are told apart from the table's own and the Homebrew Ch
     '127.0.0.1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com\n::1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com\n' +
     AMAZOFF.join('\n') + '\n' + AMAZOFF[0] + '\n192.168.1.5\tnas\n';
   assert.deepEqual(privacy.foreignHostsLines(hosts), AMAZOFF.concat(['192.168.1.5\tnas']));
+});
+
+// Life's Good Without Spying and LG App Update Blocker write nothing but sinkholes (#1370).
+var LGWSS = ['0.0.0.0 ae.lgtvsdp.com', ':: ae.lgtvsdp.com', '0.0.0.0 ad.lgsmartad.com', ':: ad.lgsmartad.com'];
+
+test("another tool's sinkholes are kept from its file, and from under this table's header in its own", function () {
+  var theirs = '127.0.0.1 localhost\n::1 localhost ip6-localhost ip6-loopback\n' + LGWSS.join('\n') + '\n';
+  assert.deepEqual(privacy.foreignHostsLines(theirs), LGWSS, 'every sinkhole in a file this table did not write');
+  var own = privacy.adBlockHostsTable('full', LGWSS);
+  var kept = privacy.foreignHostsLines(own);
+  assert.deepEqual(kept, LGWSS,
+    "this table's own sinkholes stay its own; another tool's under the header are kept, even for a name both block");
+});
+
+test("with only updates blocked, the table keeps another blocker's sinkholes, and drops a tier's when it is switched off", function () {
+  var TABLE = '/var/lib/tvweb/adblock_hosts';
+  var saved = mockEnv.files['/etc/hosts'];
+  mockEnv.files[HBC_FLAG] = '';
+  mockEnv.files['/etc/hosts'] = '127.0.0.1 localhost\n' + LGWSS.join('\n') + '\n';
+  try {
+    privacy.checkBootAdBlock(false);
+    LGWSS.forEach(function (line) {
+      assert.ok(mockEnv.files[TABLE].indexOf(line) !== -1, line + ' was dropped');
+    });
+    UPDATE_HOSTS.forEach(function (host) { assert.ok(sinkholed(mockEnv.files[TABLE], host)); });
+    // Mounted with Everything on, then switched to updates only: the tier's
+    // names go, the other blocker's stay.
+    mockEnv.files['/etc/hosts'] = privacy.adBlockHostsTable('full', LGWSS);
+    mockEnv.files['/var/lib/tvweb/adblock_enabled'] = 'full';
+    var result;
+    privacy.setAdBlock('off', function (r) { result = r; });
+    assert.ok(result && result.ok);
+    assert.ok(!sinkholed(mockEnv.files[TABLE], 'lgtviot.com'), "the tier's own names are gone");
+    LGWSS.forEach(function (line) {
+      assert.ok(mockEnv.files[TABLE].indexOf(line) !== -1, line + ' was dropped when the tier was switched off');
+    });
+  } finally {
+    delete mockEnv.files[HBC_FLAG];
+    delete mockEnv.files['/var/lib/tvweb/adblock_enabled'];
+    delete mockEnv.files[TABLE];
+    if (saved === undefined) delete mockEnv.files['/etc/hosts'];
+    else mockEnv.files['/etc/hosts'] = saved;
+  }
+});
+
+// #1369: with updates switched off, only the Homebrew Channel's own layer is
+// unmounted. Life's Good Without Spying's is a copy of it, comment and all.
+test("switching updates off lifts the Homebrew Channel's layer, and leaves another tool's copy of it under the table", function () {
+  var TABLE = '/var/lib/tvweb/adblock_hosts', MOUNTS = '/proc/self/mountinfo';
+  var saved = mockEnv.files['/etc/hosts'];
+  var HBC_LAYER = '1113 50 0:36 /hosts /etc/hosts rw,relatime shared:23 - tmpfs tmpfs rw,size=733456k\n';
+  var COPY = '127.0.0.1 localhost\n# This file is dynamically regenerated on boot by webosbrew startup script\n' +
+    '127.0.0.1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com\n::1 snu.lge.com su-dev.lge.com su.lge.com su-ssl.lge.com\n';
+  var ran = [];
+  privacy.init({ exec: function (file, args, opts, cb) { ran.push([file].concat(args).join(' ')); cb(null, '', ''); } });
+  function switchOff(hosts, mounts) {
+    ran = [];
+    mockEnv.files[HBC_FLAG] = '';
+    mockEnv.files['/etc/hosts'] = hosts;
+    mockEnv.files[MOUNTS] = mounts;
+    privacy.clearCache();
+    var result;
+    privacy.setTvUpdatesBlocked(false, function (r) { result = r; });
+    assert.ok(result && result.ok, JSON.stringify(result));
+  }
+  try {
+    // The Homebrew Channel's own layer on top: unmounted, as before.
+    switchOff(COPY, HBC_LAYER);
+    assert.deepEqual(ran, ['/bin/umount /etc/hosts']);
+
+    // Another tool's layer over it, made from a copy: not unmounted. The table
+    // goes over it with that tool's lines and without the update block.
+    switchOff(COPY + LGWSS.join('\n') + '\n', HBC_LAYER +
+      '1329 1113 179:59 /var/lib/webosbrew/lifesgoodwithoutspying.hosts /etc/hosts rw,nosuid,relatime shared:39 - ext4 /dev/mmcblk0p59 rw,data=ordered\n');
+    assert.deepEqual(ran, ['/bin/mount --bind ' + TABLE + ' /etc/hosts'], "the other tool's layer is not unmounted");
+    LGWSS.forEach(function (line) { assert.ok(mockEnv.files[TABLE].indexOf(line) !== -1, line + ' was dropped'); });
+    UPDATE_HOSTS.forEach(function (host) {
+      assert.ok(!sinkholed(mockEnv.files[TABLE], host) && mockEnv.files[TABLE].indexOf(host) === -1, host + ' is still blocked');
+    });
+
+    // A mount table that cannot be read: nothing is taken for the Homebrew Channel's.
+    delete mockEnv.files[MOUNTS];
+    assert.strictEqual(privacy.hbcLayerOnTop(), false);
+    // No comment in /etc/hosts: nothing more is done.
+    switchOff('127.0.0.1 localhost\n', HBC_LAYER);
+    assert.deepEqual(ran, []);
+  } finally {
+    privacy.init({ exec: require('child_process').execFile });
+    delete mockEnv.files[HBC_FLAG];
+    delete mockEnv.files[TABLE];
+    delete mockEnv.files[MOUNTS];
+    if (saved === undefined) delete mockEnv.files['/etc/hosts'];
+    else mockEnv.files['/etc/hosts'] = saved;
+    privacy.clearCache();
+  }
+});
+
+// #1434: AirPlay's key check with LG is skipped while the table blocks the
+// time servers' domain, and runs again once it does not.
+test("AirPlay's MFi key check is skipped while the table blocks LG's time servers, and only then", function () {
+  // An in-memory filesystem for the flag: entries are 'file' or 'dir'.
+  var disk = {};
+  var FLAG = '/tmp/mfi_key_requested', MINE = FLAG + '/glasshouse';
+  function enoent() { var e = new Error('ENOENT'); e.code = 'ENOENT'; return e; }
+  var airplayFs = {
+    lstatSync: function (p) { if (!disk[p]) throw enoent(); return { isDirectory: function () { return disk[p] === 'dir'; } }; },
+    existsSync: function (p) { return !!disk[p]; },
+    unlinkSync: function (p) { if (disk[p] !== 'file') throw enoent(); delete disk[p]; },
+    mkdirSync: function (p) { if (disk[p]) throw new Error('EEXIST'); disk[p] = 'dir'; },
+    rmdirSync: function (p) {
+      if (disk[p] !== 'dir') throw enoent();
+      if (Object.keys(disk).some(function (k) { return k.indexOf(p + '/') === 0; })) throw new Error('ENOTEMPTY');
+      delete disk[p];
+    }
+  };
+  var saved = mockEnv.files['/etc/hosts'];
+  var TABLE = '/var/lib/tvweb/adblock_hosts', ENABLED = '/var/lib/tvweb/adblock_enabled';
+  function set(mode) {
+    var result;
+    privacy.setAdBlock(mode, function (r) { result = r; });
+    assert.ok(result && result.ok, mode + ': ' + JSON.stringify(result));
+    // As mounted, then once more so the check sees the table in place.
+    mockEnv.files['/etc/hosts'] = mode === 'off' ? '127.0.0.1 localhost\n' : mockEnv.files[TABLE];
+    privacy.clearCache();
+    privacy.setAdBlock(mode, function () {});
+  }
+  // umount and mount answer at once, so switching off is done when set returns.
+  privacy.init({ airplayFs: airplayFs, exec: function (file, args, opts, cb) { cb(null, '', ''); } });
+  privacy._setSdpGraceActive(false);
+  try {
+    // The daemon's own marker, a file a power-on deletes, gives way to the directory.
+    disk[FLAG] = 'file';
+    set('full');
+    assert.strictEqual(disk[FLAG], 'dir', 'the marker is a directory while Everything blocks the time servers');
+    assert.strictEqual(disk[MINE], 'dir');
+    set('ads');
+    assert.ok(!disk[FLAG], 'gone with a tier that leaves them reachable, so LG checks again');
+    set('full');
+    disk[FLAG + '/other'] = 'dir';
+    set('off');
+    assert.ok(!disk[MINE], 'its folder goes when blocking is off');
+    assert.strictEqual(disk[FLAG], 'dir', "a directory still holding another tool's is left");
+    delete disk[FLAG + '/other'];
+    delete disk[FLAG];
+    // While the clock is still unset the time servers are reachable, so the check runs.
+    privacy._setSdpGraceActive(true);
+    set('full');
+    assert.ok(!disk[FLAG], 'not before the clock is set');
+  } finally {
+    privacy._setSdpGraceActive(false);
+    privacy.init({ airplayFs: require('fs'), exec: require('child_process').execFile });
+    delete mockEnv.files[ENABLED];
+    delete mockEnv.files[TABLE];
+    if (saved === undefined) delete mockEnv.files['/etc/hosts'];
+    else mockEnv.files['/etc/hosts'] = saved;
+  }
 });
 
 test("rewriting the mounted table keeps what other tools added to it", function () {
@@ -188,6 +333,14 @@ test('Customer data host cdpsvc is blocked in both Ads & telemetry and Everythin
   assert.ok(fullList.indexOf('gb.cdpsvc.lgtvcommon.com') !== -1, 'regional cdpsvc must be in full mode');
 });
 
+test('Google push messaging is blocked only in Everything mode, on both address families', function () {
+  assert.ok(sinkholed(privacy.adBlockHostsTable('full'), 'mtalk.google.com'));
+  ['ads', 'off'].forEach(function (mode) {
+    assert.strictEqual(privacy.adBlockList(mode).indexOf('mtalk.google.com'), -1, mode);
+    assert.strictEqual(privacy.adBlockHostsTable(mode).indexOf('mtalk.google.com'), -1, mode);
+  });
+});
+
 test('webOS 11 upload hosts are in the Ads & telemetry tier, its platform is not', function () {
   var adsList = privacy.adBlockList('ads');
   assert.ok(adsList.indexOf('api.adts.lgtvcommon.com') !== -1, 'the ad log script\'s host');
@@ -195,6 +348,243 @@ test('webOS 11 upload hosts are in the Ads & telemetry tier, its platform is not
   assert.ok(adsList.indexOf('rone-aic.lge.com') !== -1, 'remote diagnostics');
   assert.strictEqual(adsList.indexOf('tv.wiselg.com'), -1, 'the service platform also serves the Content Store');
   assert.strictEqual(adsList.indexOf('aic.tv.wiselg.com'), -1);
+});
+
+test('Everything covers regional LG cloud services without blocking network detection', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  try {
+    mockEnv.files[countryFile] = 'de';
+    privacy._setSdpGraceActive(false);
+    var table = privacy.adBlockHostsTable('full');
+    ['de.nextlgsdp.com', 'de.ibs.nextlgsdp.com', 'de.ibsstat.nextlgsdp.com',
+     'de.lgeapi.com', 'eic.lgtviot.com', 'eic.api.lgtviot.com',
+     'eic.push.lgtviot.com', 'eic.sports.lgtviot.com', 'eic.buddy.lgtviot.com',
+     'connect-client.lgthinq.com', 'aic-connect-client.lgthinq.com',
+     'eic-connect-client.lgthinq.com', 'kic-connect-client.lgthinq.com',
+     'common.lgthinq.com', 'eic-common.lgthinq.com', 'www.ueiwsp.com',
+     'eic-ocp.lgtviot.com', 'eic-ngfts.lge.com', 'eic-gfts.tv.wiselg.com',
+     'device-provisioning.googleapis.com'].forEach(function (host) {
+      assert.ok(sinkholed(table, host), host + ': both address families');
+      ['ads', 'off'].forEach(function (mode) {
+        assert.strictEqual(privacy.adBlockHostsTable(mode).indexOf(host), -1, mode + ': ' + host);
+      });
+    });
+    ['lgtvonline.lge.com', 'tools.google.com', 'www.googleapis.com',
+     'www.gstatic.com', 'connectivitycheck.gstatic.com', 'www.google.com',
+     'clients1.google.com', 'clients2.google.com', 'clients3.google.com',
+     'clients4.google.com', 'clients3',
+     'static.doubleclick.net', 'www.youtube.com', 'i.ytimg.com',
+     'eligibility-panelresearch.googlevideo.com', 'de.emp.lgsmartplatform.com',
+     'eic.connect-client.lgthinq.com',
+     'nl.lgeapi.com'].forEach(function (host) {
+      assert.strictEqual(table.indexOf(host), -1, host + ': not a selected service host');
+    });
+    var list = privacy.adBlockList('full');
+    assert.strictEqual(list.length, list.filter(function (host, i) { return list.indexOf(host) === i; }).length, 'no duplicate hosts');
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+    privacy._setSdpGraceActive(savedGrace);
+  }
+});
+
+test('Content Store interface and recommendations are blocked only in Everything, including before clock sync', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  try {
+    mockEnv.files[countryFile] = 'de';
+    [true, false].forEach(function (grace) {
+      privacy._setSdpGraceActive(grace);
+      var table = privacy.adBlockHostsTable('full');
+      ['app.lgwebostv.com', 'lgrecommends.lgappstv.com'].forEach(function (host) {
+        [host, 'de.' + host].forEach(function (name) {
+          assert.ok(sinkholed(table, name), name + ': both address families');
+          ['ads', 'off'].forEach(function (mode) {
+            assert.strictEqual(privacy.adBlockList(mode).indexOf(name), -1, mode + ': ' + name);
+          });
+        });
+        ['aic', 'eic', 'kic', 'eu', 'nl'].forEach(function (prefix) {
+          assert.strictEqual(privacy.adBlockList('full').indexOf(prefix + '.' + host), -1,
+            prefix + '.' + host + ': not a selected country');
+        });
+      });
+    });
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+    privacy._setSdpGraceActive(savedGrace);
+  }
+});
+
+test('Content Store hosts follow the TV country and use fallback countries until it is known', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  try {
+    [{ country: 'NL', prefixes: ['nl'], absent: 'de' },
+     { country: undefined, prefixes: ['us', 'gb', 'au', 'br', 'ca', 'de', 'fr'], absent: 'nl' },
+     { country: 'invalid', prefixes: ['us', 'gb', 'au', 'br', 'ca', 'de', 'fr'], absent: 'invalid' }].forEach(function (sample) {
+      if (sample.country === undefined) delete mockEnv.files[countryFile];
+      else mockEnv.files[countryFile] = sample.country;
+      var table = privacy.adBlockHostsTable('full');
+      var list = privacy.adBlockList('full');
+      ['app.lgwebostv.com', 'lgrecommends.lgappstv.com'].forEach(function (host) {
+        assert.ok(sinkholed(table, host), 'bare host remains covered');
+        sample.prefixes.forEach(function (prefix) {
+          assert.ok(sinkholed(table, prefix + '.' + host), String(sample.country) + ': ' + prefix + '.' + host);
+        });
+        assert.strictEqual(list.indexOf(sample.absent + '.' + host), -1, 'unselected country stays out');
+      });
+      assert.strictEqual(list.length, list.filter(function (host, i) { return list.indexOf(host) === i; }).length,
+        'no duplicate hosts');
+    });
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+  }
+});
+
+test('additional advertising, ACR and APM hosts are blocked on both tiers, including the saved country', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  try {
+    mockEnv.files[countryFile] = 'DE';
+    var names = ['de.ad.lgsmartad.com', 'ad.lgappstv.com', 'info.lgsmartad.net',
+      'eic.ads.lgtvcommon.com', 'eic.videoads.lgtvcommon.com',
+      'eic.cdpbeacon2.lgtvcommon.com', 'ruc.cdpbeacon.lgtvcommon.com',
+      'lgad.cjpowercast.com', 'lgads.tv', 'ad-inserter.alphonso.tv',
+      'config-overlay-ads.alphonso.tv', 'eic-rum.elsa.lgecloudapm.com',
+      'lgecloudapm.com', 'tracking.lgtvsdp.com'];
+    ['ads', 'full'].forEach(function (mode) {
+      var table = privacy.adBlockHostsTable(mode);
+      names.forEach(function (name) { assert.ok(sinkholed(table, name), mode + ': ' + name); });
+    });
+    names.forEach(function (name) { assert.strictEqual(privacy.adBlockList('off').indexOf(name), -1); });
+    assert.strictEqual(privacy.adBlockList('ads').indexOf('nl.ad.lgsmartad.com'), -1, 'other countries are not added');
+    mockEnv.files[countryFile] = 'nl';
+    assert.ok(sinkholed(privacy.adBlockHostsTable('ads'), 'nl.ad.lgsmartad.com'));
+    assert.strictEqual(privacy.adBlockList('ads').indexOf('de.ad.lgsmartad.com'), -1, 'the old country is replaced');
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+  }
+});
+
+test('Home, ThinQ and LG Channels dependencies belong only to Everything and do not wait for the clock', function () {
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  try {
+    var names = ['eic.cdplauncher.lgtvcommon.com', 'eic.homeprv.lgtvcommon.com',
+      'eic.recommend.lgtvcommon.com', 'eic.wiseconfig.lgtvcommon.com',
+      'ruc.nudge.lgtvcommon.com', 'qcardservice.lgtvcommon.com', 'thetake.com',
+      'config.lgtvsdp.com', 'eic.commonpush.lgtviot.com', 'ocp.lgtviot.com',
+      'aic-ocp.lgtviot.com', 'kic-ocp.lgtviot.com', 'eic-iotservice.lgthinq.com',
+      'eic-service.lgthinq.com', 'eic-op-lss.lgthinq.com', 'ruc-op-lss.lgthinq.com',
+      'it-service.lgthinq.com', 'lgthinq.com', 'lss.lgthinq.com', 'noti.lgthinq.com',
+      'prd-api.lgthinq.com', 'eic.lgchhomeapp.lgtvcommon.com',
+      'app-lgwebos.pluto.tv', 'sp.pluto.tv', 'tags.tiqcdn.com',
+      'lg-channelplus-eu-beacons.xumo.com', 'lg-channelplus-eu-mds.xumo.com',
+      'bss.lgechannel.com', 'lgechannel.com'];
+    [true, false].forEach(function (grace) {
+      privacy._setSdpGraceActive(grace);
+      var table = privacy.adBlockHostsTable('full');
+      names.forEach(function (name) {
+        assert.ok(sinkholed(table, name), 'Everything: ' + name);
+        ['ads', 'off'].forEach(function (mode) {
+          assert.strictEqual(privacy.adBlockList(mode).indexOf(name), -1, mode + ': ' + name);
+        });
+      });
+    });
+  } finally { privacy._setSdpGraceActive(savedGrace); }
+});
+
+test('documented SDP variants follow the saved country and stay reachable until clock sync', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  try {
+    [{ country: 'US', wanted: ['us7'], absent: ['au7', 'de7'] },
+     { country: 'au', wanted: ['au7'], absent: ['us7', 'de7'] },
+     { country: 'de', wanted: [], absent: ['de7', 'us7', 'au7'] },
+     { country: undefined, wanted: ['us7', 'au7', 'br7'], absent: ['de7', 'gb7', 'nl7'] },
+     { country: 'invalid', wanted: ['us7', 'au7', 'br7'], absent: ['de7', 'gb7', 'nl7'] }].forEach(function (sample) {
+      if (sample.country === undefined) delete mockEnv.files[countryFile];
+      else mockEnv.files[countryFile] = sample.country;
+      var names = sample.wanted.map(function (prefix) { return prefix + '.nextlgsdp.com'; })
+        .concat(['eu7.nextlgsdp.com', 'af.nextlgsdp.com', 'as.nextlgsdp.com',
+          'la.nextlgsdp.com', 'me.nextlgsdp.com', 'na.nextlgsdp.com', 'ruc.tv.wiselg.com']);
+      privacy._setSdpGraceActive(false);
+      var table = privacy.adBlockHostsTable('full');
+      var list = privacy.adBlockList('full');
+      assert.strictEqual(list.length, list.filter(function (name, i) { return list.indexOf(name) === i; }).length,
+        String(sample.country) + ': no duplicate names');
+      names.forEach(function (name) {
+        assert.ok(sinkholed(table, name), String(sample.country) + ': ' + name);
+        ['ads', 'off'].forEach(function (mode) { assert.strictEqual(privacy.adBlockList(mode).indexOf(name), -1); });
+      });
+      sample.absent.forEach(function (prefix) {
+        assert.strictEqual(privacy.adBlockList('full').indexOf(prefix + '.nextlgsdp.com'), -1, 'unselected or undocumented variant');
+      });
+      privacy._setSdpGraceActive(true);
+      names.forEach(function (name) { assert.strictEqual(privacy.adBlockList('full').indexOf(name), -1, name + ': clock gate'); });
+    });
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+    privacy._setSdpGraceActive(savedGrace);
+  }
+});
+
+test('known WiseLG platform and CDN names are blocked only in Everything after clock sync', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  var names = ['tv.wiselg.com', 'aic.tv.wiselg.com', 'eic.tv.wiselg.com',
+    'kic.tv.wiselg.com', 'eu.tv.wiselg.com', 'de.tv.wiselg.com',
+    'ngfts.tv.wiselg.com', 'eic-gfts.tv.wiselg.com', 'dev-ruc-ngfts.tv.wiselg.com'];
+  try {
+    mockEnv.files[countryFile] = 'de';
+    privacy._setSdpGraceActive(false);
+    var table = privacy.adBlockHostsTable('full');
+    names.forEach(function (host) {
+      assert.ok(sinkholed(table, host), host + ': both address families');
+      ['ads', 'off'].forEach(function (mode) {
+        assert.strictEqual(privacy.adBlockList(mode).indexOf(host), -1, mode + ': ' + host);
+      });
+    });
+    privacy._setSdpGraceActive(true);
+    names.forEach(function (host) {
+      assert.strictEqual(privacy.adBlockList('full').indexOf(host), -1, host + ': waits for clock sync');
+    });
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+    privacy._setSdpGraceActive(savedGrace);
+  }
+});
+
+test('regional platform coverage follows the TV country and has a fallback before it is learned', function () {
+  var countryFile = '/var/lib/tvweb/country';
+  var savedCountry = mockEnv.files[countryFile];
+  var savedGrace = privacy.isSdpGracePeriodActive();
+  try {
+    privacy._setSdpGraceActive(false);
+    [{ country: 'NL', prefix: 'nl' }, { country: undefined, prefix: 'de' },
+     { country: 'invalid', prefix: 'de' }].forEach(function (sample) {
+      if (sample.country === undefined) delete mockEnv.files[countryFile];
+      else mockEnv.files[countryFile] = sample.country;
+      var table = privacy.adBlockHostsTable('full');
+      ['nextlgsdp.com', 'ibs.nextlgsdp.com', 'ibsstat.nextlgsdp.com',
+       'lgeapi.com', 'api.lgtviot.com'].forEach(function (host) {
+        assert.ok(sinkholed(table, sample.prefix + '.' + host), String(sample.country) + ': ' + host);
+      });
+    });
+  } finally {
+    if (savedCountry === undefined) delete mockEnv.files[countryFile];
+    else mockEnv.files[countryFile] = savedCountry;
+    privacy._setSdpGraceActive(savedGrace);
+  }
 });
 
 test('Ads & telemetry blocks the store\'s request logs and the rdx2 report host, the latter once the clock is set', function () {
@@ -241,6 +631,10 @@ test('nextlgsdp.com is omitted while SDP grace period is active', function () {
   var list = privacy.adBlockList('full');
   assert.strictEqual(list.indexOf('nextlgsdp.com'), -1, 'nextlgsdp omitted during grace period');
   assert.strictEqual(list.indexOf('gb.nextlgsdp.com'), -1, 'regional nextlgsdp omitted during grace period');
+  assert.strictEqual(privacy.adBlockHostsTable('full').indexOf('de.nextlgsdp.com'), -1, 'German nextlgsdp stays reachable while the clock is invalid');
+  ['de.ibs.nextlgsdp.com', 'de.ibsstat.nextlgsdp.com', 'eic-gfts.tv.wiselg.com'].forEach(function (host) {
+    assert.strictEqual(privacy.adBlockHostsTable('full').indexOf(host), -1, host + ': waits for clock sync');
+  });
   assert.strictEqual(list.indexOf('tv.wiselg.com'), -1, 'the webOS 11 platform, also the clock source, omitted during grace period');
   assert.strictEqual(list.indexOf('aic.tv.wiselg.com'), -1, 'and its regional names');
 });
@@ -259,6 +653,10 @@ test('SDP grace period is skipped when getSystemTime reports time is already val
   var fullList = privacy.adBlockList('full');
   assert.ok(fullList.indexOf('nextlgsdp.com') !== -1, 'nextlgsdp blocked after window skipped');
   assert.ok(fullList.indexOf('gb.nextlgsdp.com') !== -1, 'regional nextlgsdp blocked after window skipped');
+  assert.ok(sinkholed(privacy.adBlockHostsTable('full'), 'de.nextlgsdp.com'), 'German nextlgsdp blocked on both address families when the clock is already valid');
+  ['ads', 'off'].forEach(function (mode) {
+    assert.strictEqual(privacy.adBlockHostsTable(mode).indexOf('de.nextlgsdp.com'), -1, mode);
+  });
   privacy._clearSdpTimer();
 });
 
@@ -284,6 +682,10 @@ test('SDP grace period stays open on cold boot until timeValid with source sdp i
 
   assert.strictEqual(privacy.isSdpGracePeriodActive(), false, 'grace period closes once sdp time is valid');
   assert.ok(privacy.adBlockList('full').indexOf('nextlgsdp.com') !== -1, 'nextlgsdp blocked once synced');
+  assert.ok(sinkholed(privacy.adBlockHostsTable('full'), 'de.nextlgsdp.com'), 'German nextlgsdp blocked on both address families after cold-boot clock sync');
+  ['de.ibs.nextlgsdp.com', 'de.ibsstat.nextlgsdp.com', 'eic-gfts.tv.wiselg.com'].forEach(function (host) {
+    assert.ok(sinkholed(privacy.adBlockHostsTable('full'), host), host + ': both address families after clock sync');
+  });
   privacy._clearSdpTimer();
 });
 

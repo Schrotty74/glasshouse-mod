@@ -1,5 +1,7 @@
 # Installing from the Homebrew Channel
 
+The standard Homebrew Channel listing installs official Glasshouse. For Glasshouse Mod, use the IPK from this fork and follow [Installing this fork](fork-installation.md).
+
 1. Open the Homebrew Channel, find **Glasshouse**, and install it.
 2. Open **Glasshouse** from the home screen. The first launch puts the server in place, which takes a few seconds.
 3. Setup asks whether phones and computers on the network may use the dashboard, and whether to connect Home Assistant. Broker details are typed on a phone, which scans a code from the TV. Both can be changed later in the **Settings** tab.

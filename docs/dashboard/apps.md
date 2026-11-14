@@ -1,10 +1,6 @@
 # Apps and home screen launcher
 
-The **Apps** tab, `/?tab=apps`, has three groups: **Apps**, for installing and removing apps and the web pages saved to the Home screen; **Remote**, for what the remote's keys do; and **Background**, for the memory LG's background apps and services take up.
-
-![Apps tab in three groups: installed applications and saved web pages under Apps, the Home screen layout with its inputs and parts, Quick Access and hidden system apps under Home screen and remote, and apps kept ready and background services under Background](../screenshots/apps.png)
-
-*The three groups, with installed applications, saved web pages, the Home screen layout, apps kept ready in the background and background services open.*
+The **Apps** tab, `/?tab=apps`, has two groups: **Apps**, for installing and removing apps and the web pages saved to the Home screen; and **Background**, for the memory LG's background apps and services take up. What the remote's keys do is on the [Remote](remote.md) tab.
 
 ## Apps
 
@@ -48,39 +44,7 @@ It is off until it is switched on in this section (after a warning) or a token i
 
 ![Saved web pages, two pages with Edit and Remove buttons, and the fields for adding another](../screenshots/apps-saved-pages.png)
 
-Lists the web pages on the Home screen, each of which opens in the TV's browser. A page saved from the browser takes its whole title as its name, so a long one can be given a shorter name here. Pages can also be added, pointed at a new address, or removed.
-
-## Remote
-
-### Quick Access
-
-![Quick Access, number keys 1 to 9, each with what it opens](../screenshots/apps-quick-access.png)
-
-Sets what each number key on the remote opens when it is held: an installed app, an HDMI input or Live TV, for keys 1 to 9. The keys are tiles laid out as the remote's number pad, each showing what it opens; choosing one opens the choices under its row, as for Remote keys. Holding 0 shows the list on the TV. A change applies straight away, the same as changing it in the TV's own Quick Access list, which shows it too.
-
-**None** leaves a key opening nothing, including one LG set itself, such as its help on 9. A streaming button set to None is still reported to Home Assistant as a [remote button event](../HOME-ASSISTANT-REMOTE-BUTTONS.md). A key LG set for an app that is not installed, as it does for some regions' channel apps, shows as **App not installed**, with the app's id beneath. A key set to a live TV channel on the TV shows the channel, and can be changed here but not set to another channel. The TV app lists the keys without changing them.
-
-### Remote keys
-
-![Remote keys as tiles in streaming buttons, color keys and other keys, each showing what the key does, with buttons on remotes sold elsewhere folded at the end](../screenshots/apps-remote-keys.png)
-
-Sets what a key on the remote does: **As LG has it**, **Nothing**, **Input switcher**, **Screen off**, **Power off**, **Home Assistant**, **Home** (Glasshouse Home where it is on, LG's Home otherwise), a media control (**Play**, **Pause**, **Stop**, **Rewind**, **Fast forward**, **Volume up**, **Volume down** or **Mute**), or opening an installed app, an HDMI input or Live TV instead. A media control acts as the remote's own play or pause key would on what is on screen. The volume controls change the volume as the remote's own keys do, a sound bar on HDMI ARC included, and repeat while the key is held. **Home Assistant**, offered while MQTT is on for the keys Home Assistant receives (the color keys, the streaming buttons, Google Assistant and the microphone), makes the key do nothing on the TV, as **Nothing** does, and says it is for Home Assistant. Presses of those keys reach Home Assistant's [Remote Button](../HOME-ASSISTANT-REMOTE-BUTTONS.md) event whatever they are set to. **Screen off** turns the screen off with the sound still playing, as the Control tab's Screen off does; any key, that one included, brings the picture back. **Input switcher** opens LG's list of inputs, as the remote's Input button does; it is offered on TVs that have LG's quick input picker, such as a C5 on webOS 11. Each key is a tile showing what it does now, grouped as streaming buttons, color keys and other keys; choosing a tile opens the choices under its row. The keys listed are the ones this TV's own key handling names, so a C5 lists its Disney+ button and a CX does not; Netflix, Prime Video, Guide, Input, TV, Search, Info, Help and the four color keys are typical, 2020 remotes add a Movies button, and recent Magic Remotes add Alexa and Google Assistant buttons. The microphone button can be set too: set to anything else, a press and a hold both do that instead of starting voice control, which **As LG has it** brings back. Home, Back, volume, mute, channel and power are not offered.
-
-**Power off** puts the TV in standby when the key is released. For TVs side by side, set it on each TV and use a button sent over the Magic Remote's paired connection: an IR button can still reach both TVs. This does not change the remote's Power button or add a way to switch on one TV separately. Quick Access still opens apps and inputs; power actions are not offered there.
-
-The list is what the TV handles, not what any one remote has. A Magic Remote has no Guide, Info or color keys, and a plain IR remote no Netflix or Prime Video button, while the TV handles all of them because other remotes send them. LG also ships the same key handling to many countries, so a UK TV names Hulu and Sling TV; once the TV has reported its country, keys only sold on remotes elsewhere (Hulu and Sling TV in the US, BBC iPlayer and Freeview Play in the UK) are folded away under **Buttons on remotes sold elsewhere**, unless already changed. Look at the remote before setting a key: a key it cannot send does nothing when set, and does no harm either.
-
-A change applies straight away, on whatever is on screen, and lasts across reboots, working before the server has started. Setting every key back to **As LG has it** gives every key back to the TV; `tvwebctl restore-keys`, which uninstalling from the Homebrew Channel runs, also takes Glasshouse's filter out of the TV's key handling.
-
-A key set here is taken before any app sees it, so it wins over an app's own use of that key. YouTube uses **Guide** for its own guide, and Live TV and the HDMI inputs use the color keys for their banners and teletext: with such a key set here, those apps no longer get it, whatever is on screen, until the key is **As LG has it** again. There is no per-app setting. How it works is in [Remote keys through the compositor's filter chain](../IMPLEMENTATION.md#remote-keys-through-the-compositors-filter-chain).
-
-With [LG Input Hook](https://repo.webosbrew.org/apps/org.webosbrew.inputhook/) from the Homebrew Channel installed, keys set here may do nothing. Input Hook takes the streaming buttons before the TV's own key handling sees them, which is where Glasshouse changes them, and acts on its own key bindings instead; on a CX (webOS 5.5) none of the streaming buttons reached Glasshouse while it was installed. For keys set here to work, uninstall Input Hook and restart the TV: its bindings keep working after it is uninstalled, until the restart.
-
-On webOS 11 (LG's webOS 26) LG handles keys differently. The streaming buttons, Apps, Guide, Home Hub (the house in a circle on an MR25 Magic Remote), the **AI** and **Alexa** buttons and the **?** button can be changed, the **?** button separately when pressed and when held; Input, the color keys, Search, Info, Home and **123** cannot, and are not listed. A streaming button set to **Nothing** shows LG's short notice instead of opening an app, and the **?** button cannot be set to **Nothing**. Media controls, **Power off** and **Home Assistant** are not offered there, since LG's handling of these keys only opens apps. **Screen off** is offered on the Netflix and Prime Video buttons, and Home Hub where the remote has it (an MR25): the button then does nothing of LG's, a streaming button showing LG's short notice ("This function is not supported") as for **Nothing**, and Glasshouse turns the screen off about half a second after the press. A press with the screen already off brings the picture back. LG puts its own streaming buttons back as the screen goes off, and Glasshouse sets them again within moments, so a quick run of presses can still reach LG's app. Guide set here still opens the guide of Live TV or an HDMI input while one is on screen. LG puts its own streaming buttons back each time the TV is switched off or on; the server sets them again within a few seconds. A streaming button pressed to switch the TV on still opens LG's app.
-
-The **AI** button is answered by LG's voice assistant itself, which no setting changes, so setting it here switches the voice assistant off: voice search, the AI assistant and the microphone stop working until the button is **As LG has it** again, which switches it back on, as uninstalling does. Glasshouse then opens what was chosen about a second after the press. After the TV restarts, the button does nothing until the server has started.
-
-The **Alexa** button set here keeps Alexa from opening until it is **As LG has it** again; LG's voice assistant is left as it is. Glasshouse opens what was chosen right after the press, and for 4 s from it no notice is shown on the TV, so that Amazon's "Alexa is loading" does not appear; a notice anything else sends in those seconds is not shown either. How it works is in [webOS 11: LG's own values](../IMPLEMENTATION.md#webos-11-lgs-own-values).
+Lists the web pages on the Home screen, each of which opens in the TV's browser. They are on Glasshouse Home's Apps row too. A page saved from the browser takes its whole title as its name, so a long one can be given a shorter name here. Pages can also be added, pointed at a new address, or removed.
 
 ## Background
 
@@ -97,6 +61,18 @@ Switching an app off frees its memory once the app is next closed or the TV rest
 ![Turn off background services, each with what it does, its memory or effect, and a Disabled button](../screenshots/apps-services.png)
 
 Stops background services that most TVs don't need, such as the connected-car listener, the USB camera watcher, and LG's diagnostics and telemetry uploaders. Only the services present on the TV are listed. A service switched off stays off across restarts, and is stopped again if something on the TV starts it.
+
+The TV looking up every address on the home network, which a network-wide ad blocker such as Pi-hole shows as hundreds of requests, is switched off in [Devices and connectivity](advanced.md#devices-and-connectivity), as **Network device scans**.
+
+## Network
+
+### DNS app configuration
+
+An app LG runs in a sandbox of its own, such as YouTube, can look names up with DNS servers of its own: 1.1.1.1, say, or a Pi-hole on the home network, while everything else on the TV keeps using the TV's. **Change** takes up to three IPv4 or IPv6 addresses, separated by commas or spaces, and **Use the TV's DNS** puts the app back; an app without its own shows **Using TV's DNS**.
+
+**Change** also takes a single `https://` address for DNS over HTTPS, such as `https://dns.nextdns.io/` followed by a NextDNS profile ID, which also tells NextDNS which profile to use without linking the TV's IP address. Glasshouse then answers the app's lookups on the TV itself and sends each on over HTTPS. The app finds nothing while Glasshouse isn't running, as in the first minute after the TV starts, and when the address doesn't answer, its row says why. TVs on webOS 4 may not manage the HTTPS that most of these servers require.
+
+A change takes effect the next time the app starts, including when LG starts it again in the background. An app is listed once it has been opened, since that is when its sandbox is made. Web apps all run in one shared process, so they can't have servers of their own, and the section only appears on TVs with app sandboxes. An app that picks its own DNS server, or uses DNS over HTTPS by itself, is not affected; YouTube uses the servers set here. DNS can't block YouTube's video ads, which come from the same servers as the videos.
 
 ## Notes
 

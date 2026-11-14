@@ -35,15 +35,20 @@ theme:
 nav:
   - Home: index.md
   - Getting started:
-      - Installing: install.md
+      - Installing this fork: fork-installation.md
+      - Homebrew Channel catalogs: homebrew-sources.md
+      - Installing with a computer: install.md
       - Tested TVs: tested-tvs.md
       - Updating and uninstalling: managing.md
   - The dashboard:
       - dashboard/index.md
       - Control: dashboard/control.md
       - Metrics: dashboard/metrics.md
-      - Apps: dashboard/apps.md
       - Home: dashboard/home.md
+      - Inputs: dashboard/inputs.md
+      - Remote: dashboard/remote.md
+      - Apps: dashboard/apps.md
+      - Ambient Light: dashboard/ambient-light.md
       - Privacy: dashboard/privacy.md
       - OLED Care: dashboard/oled-care.md
       - Game: dashboard/game.md
@@ -56,14 +61,14 @@ nav:
       - Tools: dashboard/tools.md
   - Glasshouse apps:
       - The TV app: apps/tv-app.md
-      - Android app: apps/android.md
       - Pane (macOS): apps/pane.md
+      - Pane (iOS): apps/pane-ios.md
   - Smart Home & Lighting:
       - Home Assistant:
           - Overview: HOME-ASSISTANT.md
           - Entities: HOME-ASSISTANT-ENTITIES.md
           - Remote button events: HOME-ASSISTANT-REMOTE-BUTTONS.md
-      - Ambient light (PicCap): piccap.md
+      - Ambient Light (PicCap): piccap.md
       - Hue Sync: huesync.md
   - Advanced & Administration:
       - Security: SECURITY.md
@@ -89,10 +94,12 @@ nav:
       - TV research: development/TV-RESEARCH.md
       - Screen saver design: development/SCREENSAVER-DESIGN.md
       - Writing a screen saver: development/WRITING-SCREENSAVERS.md
+      - Writing a launcher: development/WRITING-LAUNCHERS.md
       - Translating the dashboards: STRINGS.md
 
 # Kept until the Homebrew Channel listing is live (webosbrew/apps-repo#261).
 not_in_nav: |
+  /apps/android.md
   /install-homebrew-channel.md
   /dashboard/tv-app.md
 

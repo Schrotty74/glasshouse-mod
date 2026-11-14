@@ -16,6 +16,7 @@ which can hold a broker password.
 
     scripts/build-ipk.py            -> dist/<id>_<version>_all.ipk
                                        dist/<id>.manifest.json
+                                       dist/repo.json
 
 ares-package is found on PATH, or named by $ARES_PACKAGE.
 """
@@ -36,7 +37,7 @@ DIST = os.path.join(ROOT, 'dist')
 APP_ID = 'io.github.rorygallagher2024.lg-webos-dashboard'
 TITLE = 'Glasshouse'
 DESCRIPTION = 'Own the glass. Dashboard, privacy controls and Home Assistant bridge for rooted LG TVs'
-REPO = 'https://github.com/rorygallagher2024/glasshouse'
+REPO = 'https://github.com/Schrotty74/glasshouse-mod'
 ICON_URI = ('https://raw.githubusercontent.com/rorygallagher2024/glasshouse/'
             'main/server/assets/dashboard-app/assets/icon130.png')
 
@@ -100,6 +101,7 @@ def stage(app, ver):
         'id': APP_ID, 'version': ver, 'vendor': 'lg-webos-dashboard', 'type': 'web',
         'main': 'index.html', 'title': TITLE, 'appDescription': DESCRIPTION,
         'icon': 'icon80.png', 'largeIcon': 'icon130.png',
+        'splashBackground': 'splash.png', 'spinnerOnLaunch': False,
         'iconColor': '#000000', 'bgColor': '#000000', 'resolution': '1920x1080',
         'disableBackHistoryAPI': True,
     }
@@ -109,7 +111,7 @@ def stage(app, ver):
 
     put(os.path.join(app, 'appinfo.json'), json.dumps(appinfo, indent=2).encode(), 0o644)
     put(os.path.join(app, 'index.html'), page.replace('@VERSION@', ver).encode('utf-8'), 0o644)
-    for icon in ('icon80.png', 'icon130.png'):
+    for icon in ('icon80.png', 'icon130.png', 'splash.png'):
         put(os.path.join(app, icon), read(os.path.join(icons, icon)), 0o644)
     put(os.path.join(app, 'payload', 'install.sh'), read(os.path.join(HBC, 'install.sh')), 0o755)
 
@@ -160,6 +162,13 @@ def main():
     with open(os.path.join(DIST, APP_ID + '.manifest.json'), 'w') as f:
         json.dump(manifest, f, indent=2)
         f.write('\n')
+
+    subprocess.run([
+        sys.executable, os.path.join(ROOT, 'scripts', 'build-hbc-catalog.py'),
+        '--manifest', os.path.join(DIST, APP_ID + '.manifest.json'),
+        '--ipk', ipk_path, '--tag', 'v' + ver,
+        '--output', os.path.join(DIST, 'repo.json'),
+    ], check=True)
 
     print('%s  %d files, %d KB' % (ipk_name, count, len(ipk) // 1024))
 

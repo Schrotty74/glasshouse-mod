@@ -1,0 +1,21 @@
+{
+  "modVersion": "1.0.0",
+  "homebrewVersion": "0.7.3",
+  "upstreamCommit": "6e928d01b21f0282a945ae2c8d3c65d25c9c1578",
+  "frontendSha256": "ca9d0c2d406fe7638ce4eacefa0fe0f570ff9fb3038ea27588f94d2270a17315",
+  "testedOn": "LG G5, webOS 10.3.1",
+  "tests": {
+    "entries": 261,
+    "visible": 261,
+    "updates": "Updates (0)",
+    "installed": "Installed (4)",
+    "newlyDiscovered": "Newly discovered (0)",
+    "catalogs": 9,
+    "catalogErrors": [],
+    "unknown": 0,
+    "summary": "261 catalog entries shown",
+    "checks": "Pointer buttons, search input, combined catalog filter and sort passed on LG G5"
+  },
+  "installerVerifiedOnTV": true,
+  "foregroundAfterInstall": "com.webos.app.hdmi2"
+}

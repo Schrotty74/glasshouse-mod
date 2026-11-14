@@ -12,7 +12,7 @@ var hashFile = require('./installer').hashFile;
 var probeFetch = fetch.probeFetch;
 var execErr = fetch.execErr;
 
-var UPDATE_REPO = 'rorygallagher2024/glasshouse';
+var UPDATE_REPO = 'Schrotty74/glasshouse-mod';
 // The recent releases rather than only the latest, for what each one since
 // the installed version brings.
 var UPDATE_API = 'https://api.github.com/repos/' + UPDATE_REPO + '/releases?per_page=10';
@@ -387,7 +387,7 @@ function installUpdate(opts, cb) {
   if (UPDATE.busy) return cb({ ok: false, error: msg('srv.update.busy', 'an update is already running') });
   var asPackage = viaHomebrewChannel() && !opts.force;
   if (asPackage && !installPackageFn) {
-    return cb({ ok: false, error: msg('srv.update.viaHbc', 'updates for this install come from the Homebrew Channel (or sideload the latest .ipk from GitHub releases)') });
+    return cb({ ok: false, error: msg('srv.update.viaHbc', 'this is a package install: install the .ipk from GitHub releases by hand') });
   }
 
   if (!asPackage && fs.existsSync(path.join(installDir, '..', '.git'))) {
@@ -503,7 +503,7 @@ function rollbackUpdate(opts, cb) {
   opts = opts || {};
   if (installBusy(cb)) return;
   if (viaHomebrewChannel() && !opts.force) {
-    return cb({ ok: false, error: msg('srv.update.viaHbc', 'updates for this install come from the Homebrew Channel (or sideload the latest .ipk from GitHub releases)') });
+    return cb({ ok: false, error: msg('srv.update.viaHbc', 'this is a package install: install the .ipk from GitHub releases by hand') });
   }
   var was = rollbackVersion();
   if (!was) return cb({ ok: false, error: msg('srv.update.noRollback', 'nothing to roll back to') });

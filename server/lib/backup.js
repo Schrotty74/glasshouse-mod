@@ -2,15 +2,12 @@
  * A backup of the TV's settings as one JSON file, and restoring one, onto the
  * same TV or another. Strict ES5 for Node 0.12.2 on webOS 4.
  *
- * It holds LG's settings that lgsettings.js understands, and the Glasshouse
- * settings that are the same on any TV. Left out:
- * - LG's game settings, which LG keeps per input and genre: restoring them
- *   would change whichever is current.
- * - What decides who can reach or change this server (port, host, token,
- *   allowControl and the like), so a file cannot open a TV up.
- * - MQTT, whose topic prefix and device id must differ between TVs.
- * - The experimental switches, Glasshouse Home's among them: its layout is
- *   carried, but not whether it is on, nor the settings it would put back.
+ * Version 2 also carries the complete Glasshouse configuration and private
+ * owner state. Version 1 retains its portable, allowlisted configuration
+ * semantics. Downloads can contain credentials and must be kept private.
+ * Executable-client paths are archived but cannot select a new executable.
+ * The portable settings include the parts in backup-parts.js. LG picture and
+ * game settings are kept per input and are outside both backup formats.
  *
  * A restore sets only what this TV has and offers, one setting at a time
  * through lgsettings.set, and says what it skipped and why.
@@ -29,8 +26,15 @@ var screentime = require('./screentime');
 var msg = require('./say').msg;
 
 var FORMAT = 'glasshouse-backup';
-var VERSION = 1;
-var SECTIONS = ['promotions', 'sound', 'devices', 'hdmi'];
+var VERSION = 2;
+var stateBackup = require('./backup-state');
+var stateEnabled = false;
+var beforeRestore = null;
+var commitState = null;
+var readSettings = null;
+var SECTIONS = ['promotions', 'uploads', 'sound', 'devices', 'hdmi'];
+// lgsettings.js's other sections, kept per input, genre or picture mode.
+var SECTIONS_NOT_CARRIED = ['game', 'picture'];
 
 /*
  * The Glasshouse settings a backup carries, each with a check of the value it
@@ -39,6 +43,17 @@ var SECTIONS = ['promotions', 'sound', 'devices', 'hdmi'];
 function isString(v) { return typeof v === 'string' && v.length <= 260; }
 function isBool(v) { return typeof v === 'boolean'; }
 function isPort(v) { return typeof v === 'number' && v % 1 === 0 && v >= 1 && v <= 65535; }
+function isCatalogList(v) {
+  if (Object.prototype.toString.call(v) !== '[object Array]' || v.length > 10) return false;
+  var seen = {};
+  for (var i = 0; i < v.length; i++) {
+    if (typeof v[i] !== 'string' || v[i].length > 2048 ||
+        !/^https:\/\/[^\s/@]+(?:\/[^\s]*)?$/.test(v[i]) ||
+        v[i] === 'https://repo' + '.webosbrew.org/api/apps.json' || seen[v[i]]) return false;
+    seen[v[i]] = true;
+  }
+  return true;
+}
 var GLASSHOUSE = {
   logging: { level: function (v) { return v === 'quiet' || v === 'info' || v === 'debug'; } },
   syslog: {
@@ -56,7 +71,8 @@ var GLASSHOUSE = {
   backup: { daily: isBool },
   screenTime: screentime.VALID,
   prometheus: { enabled: isBool },
-  update: { check: isBool }
+  update: { check: isBool },
+  apps: { repos: isCatalogList }
 };
 
 /** @type {typeof import('./lgsettings')} */
@@ -73,6 +89,8 @@ var keepApp = function (id) { return !!id; };
 var pendingFile = '/var/lib/tvweb/restore-apps.json';
 /** @type {typeof import('./home')} */
 var home = null;
+/** @type {typeof import('./backup-parts')} */
+var parts = null;
 
 var DEVELOPER_APPS = '/media/developer/apps/';
 
@@ -139,6 +157,20 @@ function pickGlasshouse(src) {
   return out;
 }
 
+// The effective catalog selection, including fork defaults before the user
+// edits it, belongs in the backup. Import never enables arbitrary sideloading.
+function backupGlasshouse() {
+  var saved = pickGlasshouse(config);
+  if (repo && repo.repoUrls) {
+    var urls = repo.repoUrls().slice(1);
+    if (isCatalogList(urls)) {
+      saved.apps = saved.apps || {};
+      saved.apps.repos = urls;
+    }
+  }
+  return saved;
+}
+
 // A row's value as the dashboard sets it: true or false for a switch.
 function rowSetting(row) {
   return row.type === 'switch' ? row.on : row.value;
@@ -149,26 +181,107 @@ function rowSetting(row) {
  * @param {function(Object): void} cb
  */
 function create(cb) {
+  var snapshot, configuration;
+  try { snapshot = stateEnabled ? stateBackup.create() : undefined;
+    if (readSettings) {
+      configuration = JSON.parse(JSON.stringify(readSettings()));
+      if (repo && repo.repoUrls) {
+        configuration.apps = configuration.apps || {};
+        configuration.apps.repos = repo.repoUrls().slice(1);
+      }
+      stateBackup.checkConfiguration(configuration);
+    } }
+  catch (e) { return cb({ ok: false, error: e.message }); }
   lgSettings.collect(SECTIONS, function (res) {
+    if (!res || res.ok === false) return cb({ ok: false, error: 'LG settings could not be read' });
     var lg = {};
     ((res && res.rows) || []).forEach(function (r) { lg[r.id] = rowSetting(r); });
-    developerApps(function (have) {
-      var apps = Object.keys(have || {}).sort().map(function (id) {
-        return { id: id, title: have[id].title, version: have[id].version };
-      });
-      var from = about() || {};
-      cb({
-        format: FORMAT,
-        version: VERSION,
-        created: new Date().toISOString(),
-        from: { model: from.model || null, glasshouse: from.version || null },
-        lg: lg,
-        glasshouse: pickGlasshouse(config),
-        home: home ? home.layout() : undefined,
-        apps: apps
+    readParts(function (settings) {
+      developerApps(function (have) {
+        if (luna && have === null) return cb({ ok: false, error: 'Installed apps could not be read' });
+        var apps = Object.keys(have || {}).sort().map(function (id) {
+          return { id: id, title: have[id].title, version: have[id].version };
+        });
+        var from = about() || {};
+        cb({
+          format: FORMAT,
+          version: VERSION,
+          created: new Date().toISOString(),
+          from: { model: from.model || null, glasshouse: from.version || null },
+          lg: lg,
+          settings: settings,
+          glasshouse: backupGlasshouse(),
+          home: home ? home.layout() : undefined,
+          apps: apps,
+          state: snapshot,
+          configuration: configuration
+        });
       });
     });
   });
+}
+
+// One part's value on this TV, or undefined where it has none or could not say.
+function readPart(part, cb) {
+  var called = false;
+  var once = function (v) { if (!called) { called = true; cb(v); } };
+  try {
+    part.read(once);
+  } catch (e) {
+    console.log('backup: could not read ' + part.id + ': ' + e.message);
+    once(undefined);
+  }
+}
+
+// backup-parts.js's settings as { id: value }, those this TV has.
+function readParts(cb) {
+  if (!parts) return cb(undefined);
+  var out = {};
+  var list = parts.PARTS;
+  (function next(i) {
+    if (i >= list.length) return cb(out);
+    readPart(list[i], function (v) {
+      if (v !== undefined) out[list[i].id] = v;
+      next(i + 1);
+    });
+  })(0);
+}
+
+/*
+ * Restores backup-parts.js's settings into the same result as LG's rows: a
+ * part this TV lacks, or a value it does not offer, is skipped and named.
+ */
+function restoreParts(wanted, result, cb) {
+  if (!parts || !wanted || typeof wanted !== 'object') return cb();
+  var byId = {};
+  parts.PARTS.forEach(function (p) { byId[p.id] = p; });
+  var ids = Object.keys(wanted);
+  (function next(i) {
+    if (i >= ids.length) return cb();
+    var id = ids[i];
+    var part = byId[id];
+    var value = wanted[id];
+    var after = function () { next(i + 1); };
+    if (!part) { result.skipped.push({ id: id, reason: 'absent' }); return after(); }
+    if (!part.valid(value)) { result.skipped.push({ id: id, reason: 'value' }); return after(); }
+    readPart(part, function (current) {
+      if (current === undefined) { result.skipped.push({ id: id, reason: 'absent' }); return after(); }
+      var target = part.merge ? part.merge(value, current) : value;
+      if (same(current, target)) { result.unchanged++; return after(); }
+      var reason = part.refuse ? part.refuse(target, current) : null;
+      if (reason) { result.skipped.push({ id: id, reason: reason }); return after(); }
+      try {
+        part.write(target, function (r) {
+          if (r && r.ok) result.applied.push(id);
+          else result.failed.push({ id: id, error: (r && r.error) || 'refused' });
+          after();
+        }, current);
+      } catch (e) {
+        result.failed.push({ id: id, error: e.message });
+        after();
+      }
+    });
+  })(0);
 }
 
 function same(a, b) {
@@ -191,11 +304,34 @@ function offers(row, value) {
  * @param {function(Object): void} cb
  */
 function restore(backup, cb) {
-  if (!backup || backup.format !== FORMAT || typeof backup.version !== 'number') {
+  if (!backup || backup.format !== FORMAT || (backup.version !== 1 && backup.version !== 2 && !(typeof backup.version === 'number' && backup.version > VERSION))) {
     return cb({ ok: false, error: msg('srv.backup.notBackup', 'That file is not a Glasshouse backup') });
   }
   if (backup.version > VERSION) {
     return cb({ ok: false, error: msg('srv.backup.newer', 'That backup is from a newer Glasshouse: update this TV first') });
+  }
+  var entries = null, complete = null;
+  try {
+    if (backup.version >= 2 && backup.configuration !== undefined) {
+      stateBackup.checkConfiguration(backup.configuration);
+      complete = JSON.parse(JSON.stringify(backup.configuration));
+      if (complete.apps && complete.apps.repos !== undefined && !isCatalogList(complete.apps.repos)) {
+        throw new Error('Invalid Homebrew catalogs');
+      }
+      // A backup must never choose an executable on the destination TV.
+      if (complete.update && complete.update.client !== undefined &&
+          complete.update.client !== '' && complete.update.client !== (config.update && config.update.client)) {
+        throw new Error('The saved update client differs from this TV; configure its executable manually first');
+      }
+    }
+    if (backup.state !== undefined) {
+      if (!stateEnabled) throw new Error('Extended restore is unavailable');
+      entries = stateBackup.prepare(backup.state);
+    }
+  } catch (e) { return cb({ ok: false, error: e.message }); }
+  if (entries && beforeRestore) {
+    var refusal = beforeRestore();
+    if (refusal) return cb({ ok: false, error: refusal });
   }
   var wanted = backup.lg && typeof backup.lg === 'object' ? backup.lg : {};
   var result = { applied: [], unchanged: 0, skipped: [], failed: [] };
@@ -206,18 +342,37 @@ function restore(backup, cb) {
     var i = 0;
     (function next() {
       if (i >= ids.length) {
-        return planApps(backup.apps, function (apps) {
-          restoreHome(backup.home, function (homeRestored) {
+        return restoreParts(backup.settings, result, function () {
+          return restoreHome(backup.home, function (homeRestored) {
             restoreGlasshouse(backup.glasshouse, result, function (r) {
-              r.apps = apps;
               r.home = !!(homeRestored && homeRestored.ok);
               if (homeRestored && !homeRestored.ok) {
                 r.ok = false;
                 r.error = msg('srv.home.backupFailed', 'Other settings may have been restored, but the Home layout could not be restored: {error}',
                   { error: homeRestored.error || 'unknown error' });
               }
-              cb(r);
-            });
+              if (entries && entries.length && r.ok) {
+                try {
+                  if (beforeRestore) {
+                    var refusal = beforeRestore();
+                    if (refusal) throw new Error(refusal);
+                  }
+                  r.restart = true;
+                  if (commitState) commitState();
+                  r.files = stateBackup.restore(entries);
+                  r.restart = r.restart || entries.length > 0;
+                } catch (e) { r.ok = false; r.error = 'Extended settings restore failed: ' + e.message; }
+              }
+              // The restored catalogs must be active before classifying missing apps.
+              var restoredRepos = complete && complete.apps && complete.apps.repos;
+              if (!restoredRepos && r.glasshouse.indexOf('apps.repos') !== -1) restoredRepos = backup.glasshouse.apps.repos;
+              if (r.ok && restoredRepos) {
+                config.apps = config.apps || {};
+                config.apps.repos = restoredRepos;
+                if (repo && repo.forget) repo.forget();
+              }
+              planApps(backup.apps, function (apps) { r.apps = apps; cb(r); });
+            }, complete);
           });
         });
       }
@@ -281,11 +436,17 @@ function restoreHome(layout, cb) {
   home.setLayout(layout, cb);
 }
 
-function restoreGlasshouse(src, lgResult, cb) {
-  var wanted = pickGlasshouse(src);
-  var current = pickGlasshouse(config);
+function restoreGlasshouse(src, lgResult, cb, complete) {
+  var wanted = complete || pickGlasshouse(src);
+  var current = complete ? config : pickGlasshouse(config);
   var patch = {}, changed = [];
   for (var section in wanted) {
+    if (complete) {
+      if (same(current[section], wanted[section])) continue;
+      patch[section] = wanted[section];
+      changed.push(section);
+      continue;
+    }
     for (var key in wanted[section]) {
       var now = current[section] ? current[section][key] : undefined;
       if (same(now, wanted[section][key])) continue;
@@ -303,7 +464,8 @@ function restoreGlasshouse(src, lgResult, cb) {
       restart: !err && changed.length > 0
     });
   }
-  if (!changed.length || !writeSettings) return done(null);
+  if (!changed.length) return done(null);
+  if (!writeSettings) return done(new Error('No settings writer configured'));
   writeSettings(patch, done);
 }
 
@@ -346,6 +508,7 @@ function dailyCheck(cb) {
   if (saved().some(function (s) { return s.name === name; })) return cb(null);
   create(function (b) {
     try {
+      if (b.ok === false) throw new Error(b.error);
       util.mkdirp(dailyDir);
       // Readable by root only, as config.json is.
       util.writeJsonAtomic(path.join(dailyDir, name), b, parseInt('600', 8));
@@ -389,6 +552,10 @@ function dailyStatus() {
 
 /**
  * @param {Object} opts
+ * @param {string} [opts.stateDir] settings and wallpaper directory
+ * @param {function(): Object} [opts.readSettings] complete configuration, including private settings
+ * @param {function(): void} [opts.commitState] pause state writers until restart
+ * @param {function(): ?string} [opts.beforeRestore] refuses an extended restore while state is busy
  * @param {typeof import('./lgsettings')} opts.lgSettings
  * @param {any} opts.config the server's config, read for the Glasshouse part
  * @param {function(Object, function(?Error): void): void} opts.writeSettings
@@ -403,8 +570,14 @@ function dailyStatus() {
  * @param {string} [opts.dailyDir] where daily backups are kept, for tests
  * @param {function(): number} [opts.now] wall clock, for tests
  * @param {typeof import('./home')} [opts.home] Glasshouse Home, whose layout a backup carries
+ * @param {typeof import('./backup-parts')} [opts.parts] the settings carried beyond LG's rows
  */
 function init(opts) {
+  stateEnabled = !!opts.stateDir;
+  if (stateEnabled) stateBackup.init(opts.stateDir);
+  beforeRestore = opts.beforeRestore || null;
+  commitState = opts.commitState || null;
+  readSettings = opts.readSettings || null;
   lgSettings = opts.lgSettings;
   config = opts.config;
   writeSettings = opts.writeSettings || null;
@@ -412,6 +585,7 @@ function init(opts) {
   luna = opts.luna || null;
   repo = opts.repo || null;
   home = opts.home || null;
+  parts = opts.parts || null;
   if (opts.keepApp) keepApp = opts.keepApp;
   if (opts.pendingFile) pendingFile = opts.pendingFile;
   if (opts.dailyDir) dailyDir = opts.dailyDir;
@@ -419,8 +593,10 @@ function init(opts) {
 }
 
 module.exports = {
+  MAX_BYTES: stateBackup.MAX_BYTES,
   FORMAT: FORMAT,
   SECTIONS: SECTIONS,
+  SECTIONS_NOT_CARRIED: SECTIONS_NOT_CARRIED,
   init: init,
   create: create,
   restore: restore,

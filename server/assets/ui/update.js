@@ -1,7 +1,7 @@
 // The release check, in-place upgrade and rollback, and the app on the TV's home screen.
 
-// Releases are cut on the upstream repo, so the tag link points there.
-const REPO = 'https://github.com/rorygallagher2024/glasshouse';
+// This build installs releases published by the fork.
+const REPO = 'https://github.com/Schrotty74/glasshouse-mod';
 
 // A git build's version carries its commit as build metadata, 0.80.1+55e51e5 or
 // 0.80.1+55e51e5.dirty; releases and the updater know only the part before it.
@@ -157,6 +157,39 @@ function renderUpdate(d) {
         cls: d.allowExperimentalScreensavers ? 'good' : 'idle',
         label: d.allowExperimentalScreensavers ? t('common.on', 'On') : t('common.off', 'Off'),
         on: d.allowExperimentalScreensavers,
+        disabled: !d.writable
+      });
+    }
+  }
+
+  const pointerRow = q('exp-pointer-row');
+  if (pointerRow && d.pointer) {
+    pointerRow.hidden = !d.pointer.supported;
+    updateToggle('exp-pointer', {
+      cls: d.pointer.enabled ? 'good' : 'idle',
+      label: d.pointer.enabled ? t('common.on', 'On') : t('common.off', 'Off'),
+      on: d.pointer.enabled,
+      disabled: !d.writable
+    });
+    q('exp-pointer-settings').hidden = !d.pointer.enabled;
+    q('exp-pointer-transport').value = d.pointer.transport;
+    q('exp-pointer-transport').disabled = !d.writable;
+    const rate = q('exp-pointer-rate');
+    if (!rate.options.length) [60, 120, 240].forEach(n => rate.add(new Option(t('server.experimental.pointer.rate.value', '{n} updates per second', { n }), String(n))));
+    rate.value = String(d.pointer.updatesPerSecond);
+    rate.disabled = !d.writable;
+    applyPointerSettings(Object.assign({ allowControl: !!d.writable }, d.pointer));
+  }
+
+  // Offered where the input bar has not been tried; where it has, it needs no switch.
+  const barRow = q('exp-inputbar-row');
+  if (barRow) {
+    barRow.hidden = !(d.inputBar && d.inputBar.standing === 'experimental');
+    if (d.inputBar) {
+      updateToggle('exp-inputbar', {
+        cls: d.inputBar.experimental ? 'good' : 'idle',
+        label: d.inputBar.experimental ? t('common.on', 'On') : t('common.off', 'Off'),
+        on: d.inputBar.experimental,
         disabled: !d.writable
       });
     }
@@ -762,7 +795,7 @@ async function saveBackup() {
     const b = await r.json();
     if (!r.ok || b.format !== 'glasshouse-backup') throw new Error(b.error || r.status);
     downloadBackupFile(b);
-    backupMessage(t('server.backup.saved', 'Saved {count} LG settings and Glasshouse’s own.', { count: Object.keys(b.lg || {}).length }));
+    backupMessage(t('server.backup.private', 'This backup contains private settings and credentials. Keep it private.') + ' ' + t('server.backup.saved', 'Saved {count} LG settings and Glasshouse’s own.', { count: Object.keys(b.lg || {}).length }));
   } catch (e) {
     backupMessage(t('server.backup.saveFailed', 'Could not make a backup — {error}', { error: e.message }));
   }
@@ -783,7 +816,8 @@ async function restoreBackupData(b) {
   }
   const from = (b.from && b.from.model) || t('server.backup.unknownTv', 'an unknown TV');
   const when = b.created ? new Date(b.created).toLocaleString() : '?';
-  if (!confirm(t('server.backup.confirm', 'Restore the settings saved from {tv} on {date}? This changes LG’s settings on this TV.', { tv: from, date: when }))) return;
+  const privateNotice = b.configuration ? t('server.backup.completeConfirm', 'This also restores Glasshouse network settings, access token and credentials. The dashboard address or login may change.') + '\n\n' : '';
+  if (!confirm(privateNotice + t('server.backup.confirmSettings', 'Restore the settings saved from {tv} on {date}? This changes settings on this TV.', { tv: from, date: when }))) return;
   backupMessage(t('server.backup.restoring', 'Restoring…'));
   try {
     const r = await fetch(api('/api/backup'), {
@@ -792,10 +826,13 @@ async function restoreBackupData(b) {
     const d = await r.json();
     if (!d.ok) throw new Error(d.error || r.status);
     const lg = d.lg || {};
-    let text = t('server.backup.restored', 'Changed {changed} LG settings, {same} were already so, {skipped} skipped as this TV does not have them or they are not available now.', {
-      changed: (lg.applied || []).length, same: lg.unchanged || 0, skipped: (lg.skipped || []).length
+    const skipped = lg.skipped || [];
+    const consent = skipped.filter(s => s.reason === 'consent');
+    let text = t('server.backup.restoredSettings', 'Changed {changed} settings, {same} were already so, {skipped} skipped as this TV does not have them or they are not available now.', {
+      changed: (lg.applied || []).length, same: lg.unchanged || 0, skipped: skipped.length - consent.length
     });
     if ((lg.failed || []).length) text += ' ' + t('server.backup.failedSome', '{count} could not be set.', { count: lg.failed.length });
+    if (consent.length) text += ' ' + t('server.backup.acrLeftOff', 'Live content recognition is left off: switching it on agrees to LG’s terms, so a backup never does.');
     const apps = d.apps || {};
     if ((apps.toInstall || []).length) text += ' ' + t('server.backup.appsToInstall', '{count} apps from the backup can be installed from the Apps tab.', { count: apps.toInstall.length });
     if ((apps.manual || []).length) text += ' ' + t('server.backup.appsManual', 'Not in the Homebrew Channel catalog, to install by hand: {names}.', { names: apps.manual.map(a => a.title).join(', ') });
@@ -862,6 +899,31 @@ async function toggleExpScreensaver() {
   const b = q('exp-screensaver');
   b.disabled = true;
   const r = await sendCommand('setWebos10ScreensaversAllowed', !b.dataset.on);
+  if (r && r.ok) renderUpdate(r); else loadUpdate();
+}
+
+async function toggleExpPointer() {
+  const b = q('exp-pointer');
+  b.disabled = true;
+  const r = await sendCommand('setPointerEnabled', !b.dataset.on);
+  if (r && r.ok) renderUpdate(r); else loadUpdate();
+}
+
+async function savePointerSettings() {
+  const transport = q('exp-pointer-transport'), rate = q('exp-pointer-rate');
+  transport.disabled = rate.disabled = true;
+  const r = await sendCommand('setPointerSettings', {
+    transport: transport.value, updatesPerSecond: Number(rate.value)
+  });
+  if (r && r.ok) renderUpdate(r); else loadUpdate();
+}
+q('exp-pointer-transport').addEventListener('change', savePointerSettings);
+q('exp-pointer-rate').addEventListener('change', savePointerSettings);
+
+async function toggleExpInputBar() {
+  const b = q('exp-inputbar');
+  b.disabled = true;
+  const r = await sendCommand('setInputBarAllowed', !b.dataset.on);
   if (r && r.ok) renderUpdate(r); else loadUpdate();
 }
 
